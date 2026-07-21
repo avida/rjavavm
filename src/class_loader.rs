@@ -73,9 +73,14 @@ pub mod class_loader {
         cursor: &mut Cursor<Vec<u8>>,
         tag: ConstantPoolTag,
     ) -> Result<FieldInfo, ClassLoadError> {
+        macro_rules! read_two_bytes {
+            () => {
+                cursor.read_u16::<byteorder::BigEndian>().unwrap()
+            };
+        }
         match tag {
             ConstantPoolTag::Utf8 => {
-                let length = cursor.read_u16::<byteorder::BigEndian>().unwrap();
+                let length = read_two_bytes!();
                 let mut bytes: Vec<u8> = vec![0u8; length as usize];
                 cursor.read_exact(&mut bytes).map_err(map_error)?;
                 Ok(FieldInfo::Utf8Info { length, bytes })
@@ -91,7 +96,8 @@ pub mod class_loader {
                 Err(ClassLoadError::Other("unimplemented: Double".to_string()))
             }
             ConstantPoolTag::Class => Ok(FieldInfo::ClassInfo {
-                name_index: cursor.read_u16::<byteorder::BigEndian>().unwrap(),
+                // name_index: cursor.read_u16::<byteorder::BigEndian>().unwrap(),
+                name_index: read_two_bytes!(),
             }),
             ConstantPoolTag::String => {
                 Err(ClassLoadError::Other("unimplemented: String".to_string()))
@@ -103,16 +109,16 @@ pub mod class_loader {
                 // let mut buf = [0u8; std::mem::size_of::<RefFieldInfo>()];
                 // cursor.read_exact(&mut buf).map_err(map_error)?;
                 Ok(FieldInfo::MethodRef(RefFieldInfo {
-                    class_index: cursor.read_u16::<byteorder::BigEndian>().unwrap(),
-                    name_and_type_index: cursor.read_u16::<byteorder::BigEndian>().unwrap(),
+                    class_index: read_two_bytes!(),
+                    name_and_type_index: read_two_bytes!(),
                 }))
             }
             ConstantPoolTag::InterfaceMethodref => Err(ClassLoadError::Other(
                 "unimplemented: InterfaceMethodref".to_string(),
             )),
             ConstantPoolTag::NameAndType => Ok(FieldInfo::NameAndType {
-                name_index: cursor.read_u16::<byteorder::BigEndian>().unwrap(),
-                descriptor_index: cursor.read_u16::<byteorder::BigEndian>().unwrap(),
+                name_index: read_two_bytes!(),
+                descriptor_index: read_two_bytes!(),
             }),
             ConstantPoolTag::MethodHandle => Err(ClassLoadError::Other(
                 "unimplemented: MethodHandle".to_string(),
