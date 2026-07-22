@@ -1,7 +1,7 @@
 pub mod attributes {
     use crate::errors::errors::*;
     use crate::java_class::java_class::ConstantPoolInfoTable;
-    use crate::java_class::java_class::ConstantPoolTag::Class;
+    use crate::java_class::java_class::*;
     use crate::utils::*;
     use byteorder::ReadBytesExt;
     use std::fmt;
@@ -85,6 +85,10 @@ pub mod attributes {
                     }
                     if !attributes.is_empty() {
                         write!(f, " attributes_count={}", attributes.len())?;
+                        writeln!(f, "    Attributes:")?;
+                        for (i, a) in attributes.iter().enumerate() {
+                            writeln!(f, "      #{}: {}", i + 1, a)?;
+                        }
                     }
                     Ok(())
                 }
@@ -103,14 +107,80 @@ pub mod attributes {
     }
 
     pub fn parse_attribute_info(
-        attribute_info: AttributeInfo,
-        constant_pool: ConstantPoolInfoTable,
+        attribute_info: &AttributeInfo,
+        constant_pool: &ConstantPoolInfoTable,
     ) -> Result<Attribute, ClassLoadError> {
-        Err(ClassLoadError::Other("qwqwd".to_string()))
+        let name = &constant_pool[attribute_info.attribute_name_index as usize - 1];
+        if let ConstantPoolPFieldInfo::Utf8Info { length: _, bytes } = &name.info {
+            let attr_name = String::from_utf8_lossy(bytes).to_string();
+            // For now, just detect the attribute name; parsing per-attribute can be
+            // implemented later.
+            match attr_name.as_str() {
+                "Code" => {
+                    // parse Code attribute from attribute_info.info bytes
+                    let mut c = std::io::Cursor::new(&attribute_info.info);
+                    let max_stack = read_2_bytes!(c);
+                    let max_locals = read_2_bytes!(c);
+                    let code_length = read_4_bytes!(c);
+                    let mut code: Vec<u8> = vec![0u8; code_length as usize];
+                    c.read_exact(&mut code).map_err(map_error)?;
+                    let exception_table_length = read_2_bytes!(c);
+                    let mut exception_table: Vec<ExceptionTableRecord> = Vec::new();
+                    for _ in 0..exception_table_length {
+                        let start_pc = read_2_bytes!(c);
+                        let end_pc = read_2_bytes!(c);
+                        let handler_pc = read_2_bytes!(c);
+                        let catch_type = read_2_bytes!(c);
+                        exception_table.push(ExceptionTableRecord {
+                            start_pc,
+                            end_pc,
+                            handler_pc,
+                            catch_type,
+                        });
+                    }
+                    let attributes_count = read_2_bytes!(c);
+                    let attributes = parse_attributes(&mut c, attributes_count)?;
+                    return Ok(Attribute::Code {
+                        attribute_name_index: attribute_info.attribute_name_index,
+                        attribute_length: attribute_info.attribute_length,
+                        max_stack,
+                        max_locals,
+                        code_length,
+                        code,
+                        exception_table_length,
+                        exception_table,
+                        attributes_count,
+                        attributes,
+                    });
+                }
+                "ConstantValue" => {
+                    let mut c = std::io::Cursor::new(attribute_info.info.clone());
+                    let constantvalue_index = read_2_bytes!(c);
+                    return Ok(Attribute::ConstantVale {
+                        attribute_name_index: attribute_info.attribute_name_index,
+                        attribute_length: attribute_info.attribute_length,
+                        constantvalue_index,
+                    });
+                }
+                _ => {
+                    return Err(ClassLoadError::Other(format!(
+                        "Unexpected attribute name: {attr_name}"
+                    )));
+                }
+            }
+            return Err(ClassLoadError::Other(format!(
+                "unimplemented attribute: {}",
+                attr_name
+            )));
+        }
+
+        Err(ClassLoadError::InvalidFormat(
+            "Attribute name index did not point to a UTF8 entry".to_string(),
+        ))
     }
 
     pub fn parse_attributes(
-        cursor: &mut Cursor<Vec<u8>>,
+        cursor: &mut Cursor<&Vec<u8>>,
         attributes_count: u16,
     ) -> Result<Vec<AttributeInfo>, ClassLoadError> {
         let mut result: Vec<AttributeInfo> = Vec::new();
@@ -128,5 +198,18 @@ pub mod attributes {
             });
         }
         Ok(result)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::attributes::attributes::*;
+    use crate::class_loader::class_loader::*;
+    #[test]
+    fn test_parse_attribute() {
+        let j_class = load("test/Hello.class").unwrap();
+        let attr = parse_attribute_info(&j_class.methods[0].attributes[0], &j_class.constant_pool)
+            .unwrap();
+        println!("attribute: {}", attr);
+        assert!(true);
     }
 }

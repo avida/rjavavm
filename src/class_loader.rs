@@ -16,7 +16,7 @@ pub mod class_loader {
     }
 
     pub fn parse(bytes: Vec<u8>) -> Result<JavaClass, ClassLoadError> {
-        let mut cursor = Cursor::new(bytes);
+        let mut cursor = Cursor::new(&bytes);
         let mut buf = [0u8; 4];
         cursor.read_exact(&mut buf).map_err(|e| {
             ClassLoadError::InvalidFormat(format!("Failed reading magic number: {}", e))
@@ -85,7 +85,7 @@ pub mod class_loader {
     }
 
     fn parse_method_info(
-        cursor: &mut Cursor<Vec<u8>>,
+        cursor: &mut Cursor<&Vec<u8>>,
         methods_count: u16,
     ) -> Result<Vec<MethodInfo>, ClassLoadError> {
         let mut result: Vec<MethodInfo> = Vec::new();
@@ -109,7 +109,7 @@ pub mod class_loader {
     }
 
     fn parse_field_info(
-        cursor: &mut Cursor<Vec<u8>>,
+        cursor: &mut Cursor<&Vec<u8>>,
         fields_count: u16,
     ) -> Result<Vec<FieldInfo>, ClassLoadError> {
         let mut result: Vec<FieldInfo> = Vec::new();
@@ -132,7 +132,7 @@ pub mod class_loader {
         Ok(result)
     }
     fn parse_constant_pool_info(
-        cursor: &mut Cursor<Vec<u8>>,
+        cursor: &mut Cursor<&Vec<u8>>,
         tag: ConstantPoolTag,
     ) -> Result<ConstantPoolPFieldInfo, ClassLoadError> {
         macro_rules! read_two_bytes {
@@ -201,7 +201,7 @@ pub mod class_loader {
     }
 
     fn parse_constant_pool(
-        cursor: &mut Cursor<Vec<u8>>,
+        cursor: &mut Cursor<&Vec<u8>>,
         count: u16,
     ) -> Result<Vec<ConstantPoolInfo>, ClassLoadError> {
         let mut constant_pool: Vec<ConstantPoolInfo> = Vec::new();
@@ -232,7 +232,7 @@ pub mod class_loader {
 
 #[cfg(test)]
 mod tests {
-    use super::class_loader::*;
+    use crate::class_loader::class_loader::*;
     use crate::errors::errors::*;
 
     #[test]
@@ -256,4 +256,5 @@ mod tests {
         assert_eq!(j_class.major_version, 65);
         assert_eq!(j_class.constant_pool_count, 29);
     }
+
 }
