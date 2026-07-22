@@ -81,21 +81,25 @@ pub mod java_class {
         pub name_and_type_index: u16,
     }
     #[derive(Debug)]
-    pub enum FieldInfo {
-        ClassInfo { name_index: u16 },
+    pub enum ConstantPoolPFieldInfo {
+        ClassInfo {
+            name_index: u16,
+        },
         Utf8Info {
             length: u16,
             bytes: Vec<u8>,
-
         },
-        NameAndType{
+        NameAndType {
             name_index: u16,
-            descriptor_index: u16
+            descriptor_index: u16,
         },
 
         MethodRef(RefFieldInfo),
         InterfaceMethodRef(RefFieldInfo),
         FieldRef(RefFieldInfo),
+        String {
+            string_index: u16,
+        },
     }
 
     impl fmt::Display for RefFieldInfo {
@@ -108,27 +112,27 @@ pub mod java_class {
         }
     }
 
-    impl fmt::Display for FieldInfo {
+    impl fmt::Display for ConstantPoolPFieldInfo {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
-                FieldInfo::ClassInfo { name_index } => {
+                ConstantPoolPFieldInfo::ClassInfo { name_index } => {
                     write!(f, "ClassInfo name_index={}", name_index)
                 }
-                FieldInfo::Utf8Info { length, bytes } => {
+                ConstantPoolPFieldInfo::Utf8Info { length, bytes } => {
                     let text = String::from_utf8_lossy(bytes);
                     write!(f, "Utf8Info length={} text={}", length, text)
                 }
-                FieldInfo::MethodRef(r) => write!(f, "MethodRef {}", r),
-                FieldInfo::InterfaceMethodRef(r) => write!(f, "InterfaceMethodRef {}", r),
-                FieldInfo::FieldRef(r) => write!(f, "FieldRef {}", r),
-                _ => write!(f, "Unimplemented")
+                ConstantPoolPFieldInfo::MethodRef(r) => write!(f, "MethodRef {}", r),
+                ConstantPoolPFieldInfo::InterfaceMethodRef(r) => write!(f, "InterfaceMethodRef {}", r),
+                ConstantPoolPFieldInfo::FieldRef(r) => write!(f, "FieldRef {}", r),
+                _ => write!(f, "Unimplemented"),
             }
         }
     }
     #[derive(Debug)]
     pub struct ConstantPoolInfo {
         pub tag: ConstantPoolTag,
-        pub info: FieldInfo,
+        pub info: ConstantPoolPFieldInfo,
     }
     #[derive(Debug)]
     pub struct JavaClass {
@@ -137,6 +141,12 @@ pub mod java_class {
         pub major_version: u16,
         pub constant_pool_count: u16,
         pub constant_pool: Vec<ConstantPoolInfo>,
+        pub access_flags: u16,
+        pub this_class: u16,
+        pub super_class: u16,
+        pub interface_count: u16,
+        pub interfaces: Vec<u16>,
+        pub fields_count: u16,
     }
     impl Default for JavaClass {
         fn default() -> Self {
@@ -146,15 +156,37 @@ pub mod java_class {
                 major_version: 0,
                 constant_pool_count: 0,
                 constant_pool: vec![],
+                access_flags: 0,
+                this_class: 0,
+                super_class: 0,
+                interface_count: 0,
+                interfaces: vec![],
+                fields_count: 0,
             }
         }
     }
     impl fmt::Display for JavaClass {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            writeln!(f, "Magic number: {:x}", self.magic_number)?;
-            writeln!(f, "Major version: {:}", self.major_version)?;
-            writeln!(f, "Minot version: {:}", self.minor_version)?;
-            writeln!(f, "Constant pool count: {:}", self.constant_pool_count)?;
+            writeln!(f, "Magic number: 0x{:08x}", self.magic_number)?;
+            writeln!(f, "Major version: {}", self.major_version)?;
+            writeln!(f, "Minor version: {}", self.minor_version)?;
+            writeln!(f, "Constant pool count: {}", self.constant_pool_count)?;
+            writeln!(f, "Access flags: 0x{:04x}", self.access_flags)?;
+            writeln!(f, "This class index: {}", self.this_class)?;
+            writeln!(f, "Super class index: {}", self.super_class)?;
+            writeln!(f, "Interface count: {}", self.interface_count)?;
+            if !self.interfaces.is_empty() {
+                writeln!(f, "Interfaces: {:?}", self.interfaces)?;
+            }
+            writeln!(f, "Fields count: {}", self.fields_count)?;
+
+            if !self.constant_pool.is_empty() {
+                writeln!(f, "Constant Pool:")?;
+                for (i, cp) in self.constant_pool.iter().enumerate() {
+                    writeln!(f, "  #{}: {} => {}", i + 1, cp.tag, cp.info)?;
+                }
+            }
+
             Ok(())
         }
     }

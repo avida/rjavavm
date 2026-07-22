@@ -14,6 +14,11 @@ pub mod class_loader {
         InvalidFormat(String),
         Other(String),
     }
+    macro_rules! read_two_bytes {
+        ($c: expr) => {
+            $c.read_u16::<byteorder::BigEndian>().unwrap()
+        };
+    }
 
     impl fmt::Display for ClassLoadError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -56,13 +61,39 @@ pub mod class_loader {
         })?;
         let constant_pool_count = u16::from_be_bytes([buf[0], buf[1]]);
         let constant_pool = parse_constant_pool(&mut cursor, constant_pool_count)?;
+        let (access_flags, this_class, super_class, interface_count) = (
+            read_two_bytes!(cursor),
+            read_two_bytes!(cursor),
+            read_two_bytes!(cursor),
+            read_two_bytes!(cursor),
+        );
 
+        let mut interfaces_u8: Vec<u8> = vec![];
+
+        Vec::resize(&mut interfaces_u8, 2 * interface_count as usize, 0);
+
+
+        cursor.read_exact(&mut interfaces_u8).map_err(|e| {
+            ClassLoadError::InvalidFormat(format!("Failed reading interfaces: {}", e))
+        })?;
+        let fields_count = read_two_bytes!(cursor);
+
+        let interfaces: Vec<u16> = interfaces_u8
+            .chunks_exact(2)
+            .map(|c| u16::from_be_bytes([c[0], c[1]]))
+            .collect();
         Ok(JavaClass {
             magic_number,
             minor_version,
             major_version,
             constant_pool_count,
             constant_pool,
+            access_flags,
+            this_class,
+            super_class,
+            interface_count,
+            interfaces,
+            fields_count
         })
     }
 
@@ -72,10 +103,15 @@ pub mod class_loader {
     fn parse_constant_pool_info(
         cursor: &mut Cursor<Vec<u8>>,
         tag: ConstantPoolTag,
-    ) -> Result<FieldInfo, ClassLoadError> {
+    ) -> Result<ConstantPoolPFieldInfo, ClassLoadError> {
         macro_rules! read_two_bytes {
             () => {
                 cursor.read_u16::<byteorder::BigEndian>().unwrap()
+            };
+        }
+        macro_rules! read_one_byte {
+            () => {
+                cursor.read_u8().unwrap()
             };
         }
         match tag {
@@ -83,7 +119,7 @@ pub mod class_loader {
                 let length = read_two_bytes!();
                 let mut bytes: Vec<u8> = vec![0u8; length as usize];
                 cursor.read_exact(&mut bytes).map_err(map_error)?;
-                Ok(FieldInfo::Utf8Info { length, bytes })
+                Ok(ConstantPoolPFieldInfo::Utf8Info { length, bytes })
             }
             ConstantPoolTag::Integer => {
                 Err(ClassLoadError::Other("unimplemented: Integer".to_string()))
@@ -95,28 +131,25 @@ pub mod class_loader {
             ConstantPoolTag::Double => {
                 Err(ClassLoadError::Other("unimplemented: Double".to_string()))
             }
-            ConstantPoolTag::Class => Ok(FieldInfo::ClassInfo {
+            ConstantPoolTag::Class => Ok(ConstantPoolPFieldInfo::ClassInfo {
                 // name_index: cursor.read_u16::<byteorder::BigEndian>().unwrap(),
                 name_index: read_two_bytes!(),
             }),
-            ConstantPoolTag::String => {
-                Err(ClassLoadError::Other("unimplemented: String".to_string()))
-            }
-            ConstantPoolTag::Fieldref => {
-                Err(ClassLoadError::Other("unimplemented: Fieldref".to_string()))
-            }
-            ConstantPoolTag::Methodref => {
-                // let mut buf = [0u8; std::mem::size_of::<RefFieldInfo>()];
-                // cursor.read_exact(&mut buf).map_err(map_error)?;
-                Ok(FieldInfo::MethodRef(RefFieldInfo {
-                    class_index: read_two_bytes!(),
-                    name_and_type_index: read_two_bytes!(),
-                }))
-            }
+            ConstantPoolTag::String => Ok(ConstantPoolPFieldInfo::String {
+                string_index: read_two_bytes!(),
+            }),
+            ConstantPoolTag::Fieldref => Ok(ConstantPoolPFieldInfo::FieldRef(RefFieldInfo {
+                class_index: read_two_bytes!(),
+                name_and_type_index: read_two_bytes!(),
+            })),
+            ConstantPoolTag::Methodref => Ok(ConstantPoolPFieldInfo::MethodRef(RefFieldInfo {
+                class_index: read_two_bytes!(),
+                name_and_type_index: read_two_bytes!(),
+            })),
             ConstantPoolTag::InterfaceMethodref => Err(ClassLoadError::Other(
                 "unimplemented: InterfaceMethodref".to_string(),
             )),
-            ConstantPoolTag::NameAndType => Ok(FieldInfo::NameAndType {
+            ConstantPoolTag::NameAndType => Ok(ConstantPoolPFieldInfo::NameAndType {
                 name_index: read_two_bytes!(),
                 descriptor_index: read_two_bytes!(),
             }),
