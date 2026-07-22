@@ -1,5 +1,6 @@
 pub mod java_class {
     use std::fmt;
+    use crate::attributes::attributes::*;
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     #[repr(u8)]
@@ -133,7 +134,7 @@ pub mod java_class {
                 ConstantPoolPFieldInfo::String { string_index } => {
                     write!(f, "String string_index={}", string_index)
                 }
-                _ => write!(f, "Unimplemented"),
+                // _ => write!(f, "Unimplemented"),
             }
         }
     }
@@ -159,25 +160,6 @@ pub mod java_class {
         pub attributes_count: u16,
         pub attributes: Vec<AttributeInfo>,
     }
-    #[derive(Debug)]
-    pub struct AttributeInfo {
-        pub attribute_name_index: u16,
-        pub attribute_length: u32,
-        pub info: Vec<u8>,
-    }
-
-    impl fmt::Display for AttributeInfo {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(
-                f,
-                "Attribute(name_index={}, length={}, info={:02x?})",
-                self.attribute_name_index,
-                self.attribute_length,
-                &self.info
-            )
-        }
-    }
-
     impl fmt::Display for FieldInfo {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             writeln!(

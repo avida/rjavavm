@@ -2,40 +2,12 @@ pub mod class_loader {
 
     use byteorder::ReadBytesExt;
 
+    use crate::attributes::attributes::*;
+    use crate::errors::errors::*;
     use crate::java_class::java_class::*;
-    use std::fmt;
+    use crate::utils::*;
     use std::fs;
     use std::io::{Cursor, Read};
-    #[derive(Debug)]
-    pub enum ClassLoadError {
-        Io(std::io::Error),
-        NotFound(String),
-        InvalidFormat(String),
-        Other(String),
-    }
-    macro_rules! read_2_bytes {
-        ($c: expr) => {
-            $c.read_u16::<byteorder::BigEndian>().unwrap()
-        };
-    }
-    macro_rules! read_4_bytes {
-        ($c: expr) => {
-            $c.read_u32::<byteorder::BigEndian>().unwrap()
-        };
-    }
-
-    impl fmt::Display for ClassLoadError {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            match self {
-                ClassLoadError::Io(e) => write!(f, "I/O error while loading class: {}", e),
-                ClassLoadError::NotFound(name) => write!(f, "Class not found: {}", name),
-                ClassLoadError::InvalidFormat(reason) => {
-                    write!(f, "Invalid class format: {}", reason)
-                }
-                ClassLoadError::Other(msg) => write!(f, "Class load error: {}", msg),
-            }
-        }
-    }
 
     pub fn read(path: &str) -> Result<Vec<u8>, ClassLoadError> {
         fs::read(path)
@@ -90,7 +62,7 @@ pub mod class_loader {
         let methods_count = read_2_bytes!(cursor);
         let methods = parse_method_info(&mut cursor, methods_count)?;
         let attributes_count = read_2_bytes!(cursor);
-        let attributes_info = parse_method_attributes(&mut cursor, attributes_count)?;
+        let attributes_info = parse_attributes(&mut cursor, attributes_count)?;
 
         Ok(JavaClass {
             magic_number,
@@ -112,30 +84,6 @@ pub mod class_loader {
         })
     }
 
-    fn map_error(e: std::io::Error) -> ClassLoadError {
-        ClassLoadError::InvalidFormat(format!("Error: {}", e))
-    }
-
-    fn parse_method_attributes(
-        cursor: &mut Cursor<Vec<u8>>,
-        attributes_count: u16,
-    ) -> Result<Vec<AttributeInfo>, ClassLoadError> {
-        let mut result: Vec<AttributeInfo> = Vec::new();
-        for _ in 0..attributes_count {
-            let (attribute_name_index, attribute_length) =
-                (read_2_bytes!(cursor), read_4_bytes!(cursor));
-
-            let mut info: Vec<u8> = Vec::new();
-            info.resize(attribute_length as usize, 0);
-            cursor.read_exact(&mut info).map_err(map_error)?;
-            result.push(AttributeInfo {
-                attribute_name_index,
-                attribute_length,
-                info,
-            });
-        }
-        Ok(result)
-    }
     fn parse_method_info(
         cursor: &mut Cursor<Vec<u8>>,
         methods_count: u16,
@@ -148,7 +96,7 @@ pub mod class_loader {
                 read_2_bytes!(cursor),
                 read_2_bytes!(cursor),
             );
-            let attributes = parse_method_attributes(cursor, attributes_count)?;
+            let attributes = parse_attributes(cursor, attributes_count)?;
             result.push(MethodInfo {
                 access_flags,
                 name_index,
@@ -172,7 +120,7 @@ pub mod class_loader {
                 read_2_bytes!(cursor),
                 read_2_bytes!(cursor),
             );
-            let attributes = parse_method_attributes(cursor, attributes_count)?;
+            let attributes = parse_attributes(cursor, attributes_count)?;
             result.push(FieldInfo {
                 access_flags,
                 name_index,
@@ -190,11 +138,6 @@ pub mod class_loader {
         macro_rules! read_two_bytes {
             () => {
                 cursor.read_u16::<byteorder::BigEndian>().unwrap()
-            };
-        }
-        macro_rules! read_one_byte {
-            () => {
-                cursor.read_u8().unwrap()
             };
         }
         match tag {
@@ -290,6 +233,8 @@ pub mod class_loader {
 #[cfg(test)]
 mod tests {
     use super::class_loader::*;
+    use crate::errors::errors::*;
+
     #[test]
     fn test_load_error() {
         let err = load("file.class").unwrap_err();

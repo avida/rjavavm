@@ -2,6 +2,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 mod class_loader;
 mod java_class;
+mod attributes;
+mod utils;
+mod errors;
 use class_loader::*;
 
 
