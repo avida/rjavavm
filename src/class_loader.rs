@@ -1,6 +1,5 @@
 pub mod class_loader {
 
-    use byteorder::BigEndian;
     use byteorder::ReadBytesExt;
 
     use crate::java_class::java_class::*;
@@ -92,7 +91,6 @@ pub mod class_loader {
         let methods = parse_method_info(&mut cursor, methods_count)?;
         let attributes_count = read_2_bytes!(cursor);
         let attributes_info = parse_method_attributes(&mut cursor, attributes_count)?;
-        println!("att -> {}", attributes_info.len());
 
         Ok(JavaClass {
             magic_number,
@@ -114,8 +112,8 @@ pub mod class_loader {
         })
     }
 
-    fn map_error(_: std::io::Error) -> ClassLoadError {
-        ClassLoadError::InvalidFormat("Error parsing constant fields".to_string())
+    fn map_error(e: std::io::Error) -> ClassLoadError {
+        ClassLoadError::InvalidFormat(format!("Error: {}", e))
     }
 
     fn parse_method_attributes(
@@ -167,14 +165,21 @@ pub mod class_loader {
         fields_count: u16,
     ) -> Result<Vec<FieldInfo>, ClassLoadError> {
         let mut result: Vec<FieldInfo> = Vec::new();
-        for _ in 1..fields_count {
-            todo!();
-            // let (access_flags, name_index, descriptor_index, attribute_count) = (
-            //     read_two_bytes!(cursor),
-            //     read_two_bytes!(cursor),
-            //     read_two_bytes!(cursor),
-            //     read_two_bytes!(cursor),
-            // );
+        for _ in 0..fields_count {
+            let (access_flags, name_index, descriptor_index, attributes_count) = (
+                read_2_bytes!(cursor),
+                read_2_bytes!(cursor),
+                read_2_bytes!(cursor),
+                read_2_bytes!(cursor),
+            );
+            let attributes = parse_method_attributes(cursor, attributes_count)?;
+            result.push(FieldInfo {
+                access_flags,
+                name_index,
+                descriptor_index,
+                attributes_count,
+                attributes,
+            });
         }
         Ok(result)
     }

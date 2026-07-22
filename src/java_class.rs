@@ -127,6 +127,12 @@ pub mod java_class {
                     write!(f, "InterfaceMethodRef {}", r)
                 }
                 ConstantPoolPFieldInfo::FieldRef(r) => write!(f, "FieldRef {}", r),
+                ConstantPoolPFieldInfo::NameAndType { name_index, descriptor_index } => {
+                    write!(f, "NameAndType name_index={} descriptor_index={}", name_index, descriptor_index)
+                }
+                ConstantPoolPFieldInfo::String { string_index } => {
+                    write!(f, "String string_index={}", string_index)
+                }
                 _ => write!(f, "Unimplemented"),
             }
         }
@@ -142,7 +148,7 @@ pub mod java_class {
         pub access_flags: u16,
         pub name_index: u16,
         pub descriptor_index: u16,
-        pub attribute_count: u16,
+        pub attributes_count: u16,
         pub attributes: Vec<AttributeInfo>,
     }
     #[derive(Debug)]
@@ -177,7 +183,7 @@ pub mod java_class {
             writeln!(
                 f,
                 "access=0x{:04x} name_index={} descriptor_index={} attrs={}",
-                self.access_flags, self.name_index, self.descriptor_index, self.attribute_count
+                self.access_flags, self.name_index, self.descriptor_index, self.attributes_count
             )?;
             if !self.attributes.is_empty() {
                 writeln!(f, "    Attributes:")?;
