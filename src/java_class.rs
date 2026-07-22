@@ -1,6 +1,6 @@
 pub mod java_class {
-    use std::fmt;
     use crate::attributes::attributes::*;
+    use std::fmt;
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     #[repr(u8)]
@@ -128,13 +128,19 @@ pub mod java_class {
                     write!(f, "InterfaceMethodRef {}", r)
                 }
                 ConstantPoolPFieldInfo::FieldRef(r) => write!(f, "FieldRef {}", r),
-                ConstantPoolPFieldInfo::NameAndType { name_index, descriptor_index } => {
-                    write!(f, "NameAndType name_index={} descriptor_index={}", name_index, descriptor_index)
+                ConstantPoolPFieldInfo::NameAndType {
+                    name_index,
+                    descriptor_index,
+                } => {
+                    write!(
+                        f,
+                        "NameAndType name_index={} descriptor_index={}",
+                        name_index, descriptor_index
+                    )
                 }
                 ConstantPoolPFieldInfo::String { string_index } => {
                     write!(f, "String string_index={}", string_index)
-                }
-                // _ => write!(f, "Unimplemented"),
+                } // _ => write!(f, "Unimplemented"),
             }
         }
     }
@@ -193,6 +199,7 @@ pub mod java_class {
             Ok(())
         }
     }
+    pub type ConstantPoolInfoTable = Vec<ConstantPoolInfo>;
 
     #[derive(Debug)]
     pub struct JavaClass {
@@ -200,7 +207,7 @@ pub mod java_class {
         pub minor_version: u16,
         pub major_version: u16,
         pub constant_pool_count: u16,
-        pub constant_pool: Vec<ConstantPoolInfo>,
+        pub constant_pool: ConstantPoolInfoTable,
         pub access_flags: u16,
         pub this_class: u16,
         pub super_class: u16,
