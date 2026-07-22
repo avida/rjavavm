@@ -60,7 +60,7 @@ pub mod class_loader {
 
         let field_info = parse_field_info(&mut cursor, fields_count)?;
         let methods_count = read_2_bytes!(cursor);
-        let methods = parse_method_info(&mut cursor, methods_count)?;
+        let methods = parse_method_info(&mut cursor, methods_count, &constant_pool)?;
         let attributes_count = read_2_bytes!(cursor);
         let attributes_info = parse_attributes(&mut cursor, attributes_count)?;
 
@@ -87,6 +87,7 @@ pub mod class_loader {
     fn parse_method_info(
         cursor: &mut Cursor<&Vec<u8>>,
         methods_count: u16,
+        constant_pool: &ConstantPoolInfoTable,
     ) -> Result<Vec<MethodInfo>, ClassLoadError> {
         let mut result: Vec<MethodInfo> = Vec::new();
         for _ in 0..methods_count {
@@ -96,7 +97,11 @@ pub mod class_loader {
                 read_2_bytes!(cursor),
                 read_2_bytes!(cursor),
             );
-            let attributes = parse_attributes(cursor, attributes_count)?;
+            let attributes_info = parse_attributes(cursor, attributes_count)?;
+            let attributes = attributes_info
+                .iter()
+                .map(|a_i| parse_attribute_info(a_i, constant_pool).unwrap())
+                .collect();
             result.push(MethodInfo {
                 access_flags,
                 name_index,
@@ -256,5 +261,4 @@ mod tests {
         assert_eq!(j_class.major_version, 65);
         assert_eq!(j_class.constant_pool_count, 29);
     }
-
 }

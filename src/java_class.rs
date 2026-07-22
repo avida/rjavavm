@@ -1,6 +1,27 @@
 pub mod java_class {
     use crate::attributes::attributes::*;
     use std::fmt;
+    pub type ConstantPoolInfoTable = Vec<ConstantPoolInfo>;
+
+    #[derive(Debug)]
+    pub struct JavaClass {
+        pub magic_number: u32,
+        pub minor_version: u16,
+        pub major_version: u16,
+        pub constant_pool_count: u16,
+        pub constant_pool: ConstantPoolInfoTable,
+        pub access_flags: u16,
+        pub this_class: u16,
+        pub super_class: u16,
+        pub interface_count: u16,
+        pub interfaces: Vec<u16>,
+        pub fields_count: u16,
+        pub field_info: Vec<FieldInfo>,
+        pub methods_count: u16,
+        pub methods: Vec<MethodInfo>,
+        pub attributes_count: u16,
+        pub attributes_info: Vec<AttributeInfo>,
+    }
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     #[repr(u8)]
@@ -164,7 +185,7 @@ pub mod java_class {
         pub name_index: u16,
         pub descriptor_index: u16,
         pub attributes_count: u16,
-        pub attributes: Vec<AttributeInfo>,
+        pub attributes: Vec<Attribute>,
     }
     impl fmt::Display for FieldInfo {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -199,27 +220,6 @@ pub mod java_class {
             Ok(())
         }
     }
-    pub type ConstantPoolInfoTable = Vec<ConstantPoolInfo>;
-
-    #[derive(Debug)]
-    pub struct JavaClass {
-        pub magic_number: u32,
-        pub minor_version: u16,
-        pub major_version: u16,
-        pub constant_pool_count: u16,
-        pub constant_pool: ConstantPoolInfoTable,
-        pub access_flags: u16,
-        pub this_class: u16,
-        pub super_class: u16,
-        pub interface_count: u16,
-        pub interfaces: Vec<u16>,
-        pub fields_count: u16,
-        pub field_info: Vec<FieldInfo>,
-        pub methods_count: u16,
-        pub methods: Vec<MethodInfo>,
-        pub attributes_count: u16,
-        pub attributes_info: Vec<AttributeInfo>,
-    }
     impl Default for JavaClass {
         fn default() -> Self {
             JavaClass {
@@ -252,6 +252,12 @@ pub mod java_class {
             writeln!(f, "This class index: {}", self.this_class)?;
             writeln!(f, "Super class index: {}", self.super_class)?;
             writeln!(f, "Interface count: {}", self.interface_count)?;
+            if !self.constant_pool.is_empty() {
+                writeln!(f, "Constant Pool:")?;
+                for (i, cp) in self.constant_pool.iter().enumerate() {
+                    writeln!(f, "  #{}: {} => {}", i + 1, cp.tag, cp.info)?;
+                }
+            }
             if !self.interfaces.is_empty() {
                 writeln!(f, "Interfaces: {:?}", self.interfaces)?;
             }
@@ -270,13 +276,6 @@ pub mod java_class {
                 writeln!(f, "Methods:")?;
                 for (i, m) in self.methods.iter().enumerate() {
                     writeln!(f, "  #{}: {}", i + 1, m)?;
-                }
-            }
-
-            if !self.constant_pool.is_empty() {
-                writeln!(f, "Constant Pool:")?;
-                for (i, cp) in self.constant_pool.iter().enumerate() {
-                    writeln!(f, "  #{}: {} => {}", i + 1, cp.tag, cp.info)?;
                 }
             }
 
