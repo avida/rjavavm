@@ -14,9 +14,14 @@ pub mod class_loader {
         InvalidFormat(String),
         Other(String),
     }
-    macro_rules! read_two_bytes {
+    macro_rules! read_2_bytes {
         ($c: expr) => {
             $c.read_u16::<byteorder::BigEndian>().unwrap()
+        };
+    }
+    macro_rules! read_4_bytes {
+        ($c: expr) => {
+            $c.read_u32::<byteorder::BigEndian>().unwrap()
         };
     }
 
@@ -62,26 +67,31 @@ pub mod class_loader {
         let constant_pool_count = u16::from_be_bytes([buf[0], buf[1]]);
         let constant_pool = parse_constant_pool(&mut cursor, constant_pool_count)?;
         let (access_flags, this_class, super_class, interface_count) = (
-            read_two_bytes!(cursor),
-            read_two_bytes!(cursor),
-            read_two_bytes!(cursor),
-            read_two_bytes!(cursor),
+            read_2_bytes!(cursor),
+            read_2_bytes!(cursor),
+            read_2_bytes!(cursor),
+            read_2_bytes!(cursor),
         );
 
         let mut interfaces_u8: Vec<u8> = vec![];
 
         Vec::resize(&mut interfaces_u8, 2 * interface_count as usize, 0);
 
-
         cursor.read_exact(&mut interfaces_u8).map_err(|e| {
             ClassLoadError::InvalidFormat(format!("Failed reading interfaces: {}", e))
         })?;
-        let fields_count = read_two_bytes!(cursor);
+        let fields_count = read_2_bytes!(cursor);
 
         let interfaces: Vec<u16> = interfaces_u8
             .chunks_exact(2)
             .map(|c| u16::from_be_bytes([c[0], c[1]]))
             .collect();
+
+        let field_info = parse_field_info(&mut cursor, fields_count).unwrap();
+        let methods_count = read_2_bytes!(cursor);
+        let methods = parse_method_info(&mut cursor, methods_count).unwrap();
+        let attributes_count = read_2_bytes!(cursor);
+
         Ok(JavaClass {
             magic_number,
             minor_version,
@@ -93,12 +103,77 @@ pub mod class_loader {
             super_class,
             interface_count,
             interfaces,
-            fields_count
+            fields_count,
+            field_info,
+            methods_count,
+            methods,
+            attributes_count
         })
     }
 
     fn map_error(_: std::io::Error) -> ClassLoadError {
         ClassLoadError::InvalidFormat("Error parsing constant fields".to_string())
+    }
+
+    fn parse_method_attributes(
+        cursor: &mut Cursor<Vec<u8>>,
+        attributes_count: u16,
+    ) -> Result<Vec<AttributeInfo>, ClassLoadError> {
+        let mut result: Vec<AttributeInfo> = Vec::new();
+        for _ in 0..attributes_count {
+            let (attribute_name_index, attribute_length) =
+                (read_2_bytes!(cursor), read_4_bytes!(cursor));
+
+            let mut info: Vec<u8> = Vec::new();
+            info.resize(attribute_length as usize, 0);
+            cursor.read_exact(&mut info).map_err(map_error)?;
+            result.push(AttributeInfo {
+                attribute_name_index,
+                attribute_length,
+                info,
+            });
+        }
+        Ok(result)
+    }
+    fn parse_method_info(
+        cursor: &mut Cursor<Vec<u8>>,
+        methods_count: u16,
+    ) -> Result<Vec<MethodInfo>, ClassLoadError> {
+        let mut result: Vec<MethodInfo> = Vec::new();
+        for _ in 0..methods_count {
+            let (access_flags, name_index, descriptor_index, attributes_count) = (
+                read_2_bytes!(cursor),
+                read_2_bytes!(cursor),
+                read_2_bytes!(cursor),
+                read_2_bytes!(cursor),
+            );
+            let attributes = parse_method_attributes(cursor, attributes_count)?;
+            result.push(MethodInfo {
+                access_flags,
+                name_index,
+                descriptor_index,
+                attributes_count,
+                attributes,
+            });
+        }
+        Ok(result)
+    }
+
+    fn parse_field_info(
+        cursor: &mut Cursor<Vec<u8>>,
+        fields_count: u16,
+    ) -> Result<Vec<FieldInfo>, ClassLoadError> {
+        let mut result: Vec<FieldInfo> = Vec::new();
+        for _ in 1..fields_count {
+            todo!();
+            // let (access_flags, name_index, descriptor_index, attribute_count) = (
+            //     read_two_bytes!(cursor),
+            //     read_two_bytes!(cursor),
+            //     read_two_bytes!(cursor),
+            //     read_two_bytes!(cursor),
+            // );
+        }
+        Ok(result)
     }
     fn parse_constant_pool_info(
         cursor: &mut Cursor<Vec<u8>>,

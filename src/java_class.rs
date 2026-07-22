@@ -123,7 +123,9 @@ pub mod java_class {
                     write!(f, "Utf8Info length={} text={}", length, text)
                 }
                 ConstantPoolPFieldInfo::MethodRef(r) => write!(f, "MethodRef {}", r),
-                ConstantPoolPFieldInfo::InterfaceMethodRef(r) => write!(f, "InterfaceMethodRef {}", r),
+                ConstantPoolPFieldInfo::InterfaceMethodRef(r) => {
+                    write!(f, "InterfaceMethodRef {}", r)
+                }
                 ConstantPoolPFieldInfo::FieldRef(r) => write!(f, "FieldRef {}", r),
                 _ => write!(f, "Unimplemented"),
             }
@@ -134,6 +136,29 @@ pub mod java_class {
         pub tag: ConstantPoolTag,
         pub info: ConstantPoolPFieldInfo,
     }
+
+    #[derive(Debug)]
+    pub struct FieldInfo {
+        pub access_flags: u16,
+        pub name_index: u16,
+        pub descriptor_index: u16,
+        pub attribute_count: u16,
+    }
+    #[derive(Debug)]
+    pub struct MethodInfo {
+        pub access_flags: u16,
+        pub name_index: u16,
+        pub descriptor_index: u16,
+        pub attributes_count: u16,
+        pub attributes: Vec<AttributeInfo>,
+    }
+    #[derive(Debug)]
+    pub struct AttributeInfo {
+        pub attribute_name_index: u16,
+        pub attribute_length: u32,
+        pub info: Vec<u8>,
+    }
+
     #[derive(Debug)]
     pub struct JavaClass {
         pub magic_number: u32,
@@ -147,6 +172,10 @@ pub mod java_class {
         pub interface_count: u16,
         pub interfaces: Vec<u16>,
         pub fields_count: u16,
+        pub field_info: Vec<FieldInfo>,
+        pub methods_count: u16,
+        pub methods: Vec<MethodInfo>,
+        pub attributes_count: u16,
     }
     impl Default for JavaClass {
         fn default() -> Self {
@@ -162,6 +191,10 @@ pub mod java_class {
                 interface_count: 0,
                 interfaces: vec![],
                 fields_count: 0,
+                field_info: vec![],
+                methods_count: 0,
+                methods: vec![],
+                attributes_count: 0,
             }
         }
     }
@@ -179,6 +212,22 @@ pub mod java_class {
                 writeln!(f, "Interfaces: {:?}", self.interfaces)?;
             }
             writeln!(f, "Fields count: {}", self.fields_count)?;
+            writeln!(f, "Methods count: {}", self.methods_count)?;
+            writeln!(f, "Attributes count: {}", self.attributes_count)?;
+
+            if !self.field_info.is_empty() {
+                writeln!(f, "Fields:")?;
+                for (i, field) in self.field_info.iter().enumerate() {
+                    writeln!(f, "  #{}: {:?}", i + 1, field)?;
+                }
+            }
+
+            if !self.methods.is_empty() {
+                writeln!(f, "Methods:")?;
+                for (i, m) in self.methods.iter().enumerate() {
+                    writeln!(f, "  #{}: {:?}", i + 1, m)?;
+                }
+            }
 
             if !self.constant_pool.is_empty() {
                 writeln!(f, "Constant Pool:")?;
