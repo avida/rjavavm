@@ -223,7 +223,7 @@ pub mod class_loader {
                 })?;
             let tag = ConstantPoolTag::try_from(next_tag).unwrap();
             let info = parse_constant_pool_info(cursor, tag)
-                .map_err(|e| ClassLoadError::InvalidFormat("Bad Field info".to_string()))?;
+                .map_err(|_| ClassLoadError::InvalidFormat("Bad Field info".to_string()))?;
             constant_pool.push(ConstantPoolInfo { tag, info });
         }
         Ok(constant_pool)

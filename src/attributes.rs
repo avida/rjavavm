@@ -170,10 +170,6 @@ pub mod attributes {
                     )));
                 }
             }
-            return Err(ClassLoadError::Other(format!(
-                "unimplemented attribute: {}",
-                attr_name
-            )));
         }
 
         Err(ClassLoadError::InvalidFormat(
