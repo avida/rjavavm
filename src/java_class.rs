@@ -143,6 +143,7 @@ pub mod java_class {
         pub name_index: u16,
         pub descriptor_index: u16,
         pub attribute_count: u16,
+        pub attributes: Vec<AttributeInfo>,
     }
     #[derive(Debug)]
     pub struct MethodInfo {
@@ -157,6 +158,52 @@ pub mod java_class {
         pub attribute_name_index: u16,
         pub attribute_length: u32,
         pub info: Vec<u8>,
+    }
+
+    impl fmt::Display for AttributeInfo {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "Attribute(name_index={}, length={}, info={:02x?})",
+                self.attribute_name_index,
+                self.attribute_length,
+                &self.info
+            )
+        }
+    }
+
+    impl fmt::Display for FieldInfo {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            writeln!(
+                f,
+                "access=0x{:04x} name_index={} descriptor_index={} attrs={}",
+                self.access_flags, self.name_index, self.descriptor_index, self.attribute_count
+            )?;
+            if !self.attributes.is_empty() {
+                writeln!(f, "    Attributes:")?;
+                for (i, a) in self.attributes.iter().enumerate() {
+                    writeln!(f, "      #{}: {}", i + 1, a)?;
+                }
+            }
+            Ok(())
+        }
+    }
+
+    impl fmt::Display for MethodInfo {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            writeln!(
+                f,
+                "access=0x{:04x} name_index={} descriptor_index={} attrs={}",
+                self.access_flags, self.name_index, self.descriptor_index, self.attributes_count
+            )?;
+            if !self.attributes.is_empty() {
+                writeln!(f, "    Attributes:")?;
+                for (i, a) in self.attributes.iter().enumerate() {
+                    writeln!(f, "      #{}: {}", i + 1, a)?;
+                }
+            }
+            Ok(())
+        }
     }
 
     #[derive(Debug)]
@@ -176,6 +223,7 @@ pub mod java_class {
         pub methods_count: u16,
         pub methods: Vec<MethodInfo>,
         pub attributes_count: u16,
+        pub attributes_info: Vec<AttributeInfo>,
     }
     impl Default for JavaClass {
         fn default() -> Self {
@@ -195,6 +243,7 @@ pub mod java_class {
                 methods_count: 0,
                 methods: vec![],
                 attributes_count: 0,
+                attributes_info: vec![],
             }
         }
     }
@@ -218,14 +267,14 @@ pub mod java_class {
             if !self.field_info.is_empty() {
                 writeln!(f, "Fields:")?;
                 for (i, field) in self.field_info.iter().enumerate() {
-                    writeln!(f, "  #{}: {:?}", i + 1, field)?;
+                    writeln!(f, "  #{}: {}", i + 1, field)?;
                 }
             }
 
             if !self.methods.is_empty() {
                 writeln!(f, "Methods:")?;
                 for (i, m) in self.methods.iter().enumerate() {
-                    writeln!(f, "  #{}: {:?}", i + 1, m)?;
+                    writeln!(f, "  #{}: {}", i + 1, m)?;
                 }
             }
 
@@ -233,6 +282,13 @@ pub mod java_class {
                 writeln!(f, "Constant Pool:")?;
                 for (i, cp) in self.constant_pool.iter().enumerate() {
                     writeln!(f, "  #{}: {} => {}", i + 1, cp.tag, cp.info)?;
+                }
+            }
+
+            if !self.attributes_info.is_empty() {
+                writeln!(f, "Attributes:")?;
+                for (i, a) in self.attributes_info.iter().enumerate() {
+                    writeln!(f, "  #{}: {}", i + 1, a)?;
                 }
             }
 

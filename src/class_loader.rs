@@ -87,10 +87,12 @@ pub mod class_loader {
             .map(|c| u16::from_be_bytes([c[0], c[1]]))
             .collect();
 
-        let field_info = parse_field_info(&mut cursor, fields_count).unwrap();
+        let field_info = parse_field_info(&mut cursor, fields_count)?;
         let methods_count = read_2_bytes!(cursor);
-        let methods = parse_method_info(&mut cursor, methods_count).unwrap();
+        let methods = parse_method_info(&mut cursor, methods_count)?;
         let attributes_count = read_2_bytes!(cursor);
+        let attributes_info = parse_method_attributes(&mut cursor, attributes_count)?;
+        println!("att -> {}", attributes_info.len());
 
         Ok(JavaClass {
             magic_number,
@@ -107,7 +109,8 @@ pub mod class_loader {
             field_info,
             methods_count,
             methods,
-            attributes_count
+            attributes_count,
+            attributes_info,
         })
     }
 
@@ -265,9 +268,7 @@ pub mod class_loader {
                         e
                     ))
                 })?;
-            println!("next Tag is {}", next_tag);
             let tag = ConstantPoolTag::try_from(next_tag).unwrap();
-            println!("Tag is {}", tag);
             let info = parse_constant_pool_info(cursor, tag)
                 .map_err(|e| ClassLoadError::InvalidFormat("Bad Field info".to_string()))?;
             constant_pool.push(ConstantPoolInfo { tag, info });
