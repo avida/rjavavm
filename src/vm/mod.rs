@@ -4,3 +4,4 @@ mod frame;
 mod method_area;
 mod thread;
 mod operand_stack;
+mod class;

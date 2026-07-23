@@ -7,6 +7,7 @@ pub mod class_loader {
     use crate::loader::java_class::java_class::*;
     use crate::utils::*;
     use std::fs;
+    use std::rc::Rc;
     use std::io::{Cursor, Read};
 
     pub fn read(path: &str) -> Result<Vec<u8>, ClassLoadError> {
@@ -15,7 +16,7 @@ pub mod class_loader {
             .map_err(|_| ClassLoadError::NotFound("File not found".to_string()))
     }
 
-    pub fn parse(bytes: Vec<u8>) -> Result<JavaClass, ClassLoadError> {
+    pub fn parse(bytes: Vec<u8>) -> Result<Rc<JavaClass>, ClassLoadError> {
         let mut cursor = Cursor::new(&bytes);
         let mut buf = [0u8; 4];
         cursor.read_exact(&mut buf).map_err(|e| {
@@ -63,8 +64,7 @@ pub mod class_loader {
         let methods = parse_method_info(&mut cursor, methods_count, &constant_pool)?;
         let attributes_count = read_2_bytes!(cursor);
         let attributes_info = parse_attributes(&mut cursor, attributes_count)?;
-
-        Ok(JavaClass {
+        Ok(std::rc::Rc::new(JavaClass {
             magic_number,
             minor_version,
             major_version,
@@ -81,7 +81,7 @@ pub mod class_loader {
             methods,
             attributes_count,
             attributes_info,
-        })
+        }))
     }
 
     fn parse_method_info(
@@ -232,7 +232,7 @@ pub mod class_loader {
         Ok(constant_pool)
     }
 
-    pub fn load(name: &str) -> Result<JavaClass, ClassLoadError> {
+    pub fn load(name: &str) -> Result<Rc<JavaClass>, ClassLoadError> {
         let data = read(name)?;
         parse(data)
     }
