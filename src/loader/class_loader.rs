@@ -2,9 +2,9 @@ pub mod class_loader {
 
     use byteorder::ReadBytesExt;
 
-    use crate::attributes::attributes::*;
-    use crate::errors::errors::*;
-    use crate::java_class::java_class::*;
+    use crate::loader::attributes::attributes::*;
+    use crate::loader::errors::errors::*;
+    use crate::loader::java_class::java_class::*;
     use crate::utils::*;
     use std::fs;
     use std::io::{Cursor, Read};
@@ -222,8 +222,7 @@ pub mod class_loader {
                     ))
                 })?;
             let tag = ConstantPoolTag::try_from(next_tag).unwrap();
-            let info = parse_constant_pool_info(cursor, tag)
-                .map_err(|_| ClassLoadError::InvalidFormat("Bad Field info".to_string()))?;
+            let info = parse_constant_pool_info(cursor, tag)?;
             constant_pool.push(ConstantPoolInfo { tag, info });
         }
         Ok(constant_pool)
@@ -237,8 +236,8 @@ pub mod class_loader {
 
 #[cfg(test)]
 mod tests {
-    use crate::class_loader::class_loader::*;
-    use crate::errors::errors::*;
+    use crate::loader::class_loader::class_loader::*;
+    use crate::loader::errors::errors::*;
 
     #[test]
     fn test_load_error() {

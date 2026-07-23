@@ -1,7 +1,7 @@
 pub mod attributes {
-    use crate::errors::errors::*;
-    use crate::java_class::java_class::ConstantPoolInfoTable;
-    use crate::java_class::java_class::*;
+    use crate::loader::errors::errors::*;
+    use crate::loader::java_class::java_class::ConstantPoolInfoTable;
+    use crate::loader::java_class::java_class::*;
     use crate::utils::*;
     use byteorder::ReadBytesExt;
     use std::fmt;
@@ -201,7 +201,7 @@ pub mod attributes {
 #[cfg(test)]
 mod tests {
     use crate::attributes::attributes::*;
-    use crate::class_loader::class_loader::*;
+    use crate::loader::class_loader::class_loader::*;
     #[test]
     fn test_parse_attribute() {
         let j_class = load("test/Hello.class").unwrap();

@@ -1,5 +1,5 @@
 pub mod java_class {
-    use crate::attributes::attributes::*;
+    use crate::loader::attributes::attributes::*;
     use std::fmt;
     pub type ConstantPoolInfoTable = Vec<ConstantPoolInfo>;
 
