@@ -97,12 +97,12 @@ pub mod java_class {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct RefFieldInfo {
         pub class_index: u16,
         pub name_and_type_index: u16,
     }
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub enum ConstantPoolPFieldInfo {
         ClassInfo {
             name_index: u16,
@@ -119,9 +119,18 @@ pub mod java_class {
         MethodRef(RefFieldInfo),
         InterfaceMethodRef(RefFieldInfo),
         FieldRef(RefFieldInfo),
+        MethodHandle {
+            reference_kind: u8,
+            reference_index: u16,
+        },
         String {
             string_index: u16,
         },
+        InvokeDynamic {
+            bootstrap_method_attr_index: u16,
+            name_and_type_index: u16,
+        },
+        Integer(i32),
     }
 
     impl fmt::Display for RefFieldInfo {
@@ -149,6 +158,9 @@ pub mod java_class {
                     write!(f, "InterfaceMethodRef {}", r)
                 }
                 ConstantPoolPFieldInfo::FieldRef(r) => write!(f, "FieldRef {}", r),
+                ConstantPoolPFieldInfo::MethodHandle { reference_kind, reference_index } => {
+                    write!(f, "MethodHandle reference_kind={} reference_index={}", reference_kind, reference_index)
+                }
                 ConstantPoolPFieldInfo::NameAndType {
                     name_index,
                     descriptor_index,
@@ -161,7 +173,23 @@ pub mod java_class {
                 }
                 ConstantPoolPFieldInfo::String { string_index } => {
                     write!(f, "String string_index={}", string_index)
-                } // _ => write!(f, "Unimplemented"),
+                },
+                ConstantPoolPFieldInfo::Integer(i) => {
+                    write!(f, "Integer {}", i)
+                },
+                ConstantPoolPFieldInfo::InvokeDynamic {
+                    bootstrap_method_attr_index,
+                    name_and_type_index,
+                } => {
+                    write!(
+                        f,
+                        "InvokeDynamic bootstrap_method_attr_index={} name_and_type_index={}",
+                        bootstrap_method_attr_index, name_and_type_index
+                    )
+                },
+                
+
+                // _ => write!(f, "Unimplemented"),
             }
         }
     }

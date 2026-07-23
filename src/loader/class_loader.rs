@@ -152,9 +152,11 @@ pub mod class_loader {
                 cursor.read_exact(&mut bytes).map_err(map_error)?;
                 Ok(ConstantPoolPFieldInfo::Utf8Info { length, bytes })
             }
-            ConstantPoolTag::Integer => {
-                Err(ClassLoadError::Other("unimplemented: Integer".to_string()))
-            }
+            ConstantPoolTag::Integer => Ok(ConstantPoolPFieldInfo::Integer(
+                cursor
+                    .read_i32::<byteorder::BigEndian>()
+                    .map_err(map_error)?,
+            )),
             ConstantPoolTag::Float => {
                 Err(ClassLoadError::Other("unimplemented: Float".to_string()))
             }
@@ -184,18 +186,20 @@ pub mod class_loader {
                 name_index: read_two_bytes!(),
                 descriptor_index: read_two_bytes!(),
             }),
-            ConstantPoolTag::MethodHandle => Err(ClassLoadError::Other(
-                "unimplemented: MethodHandle".to_string(),
-            )),
+            ConstantPoolTag::MethodHandle => Ok(ConstantPoolPFieldInfo::MethodHandle {
+                reference_kind: cursor.read_u8().map_err(map_error)?,
+                reference_index: read_two_bytes!(),
+            }),
             ConstantPoolTag::MethodType => Err(ClassLoadError::Other(
                 "unimplemented: MethodType".to_string(),
             )),
             ConstantPoolTag::Dynamic => {
                 Err(ClassLoadError::Other("unimplemented: Dynamic".to_string()))
             }
-            ConstantPoolTag::InvokeDynamic => Err(ClassLoadError::Other(
-                "unimplemented: InvokeDynamic".to_string(),
-            )),
+            ConstantPoolTag::InvokeDynamic => Ok(ConstantPoolPFieldInfo::InvokeDynamic {
+                bootstrap_method_attr_index: read_two_bytes!(),
+                name_and_type_index: read_two_bytes!(),
+            }),
             ConstantPoolTag::Module => {
                 Err(ClassLoadError::Other("unimplemented: Module".to_string()))
             }
