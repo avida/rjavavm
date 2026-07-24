@@ -4,11 +4,11 @@ use crate::loader::java_class::java_class::{
     ConstantPoolInfoTable, ConstantPoolPFieldInfo, JavaClass,
 };
 use crate::vm::class;
-
+use crate::vm::AccessFlags;
 #[derive(Debug, Clone)]
 pub struct Method {
     pub name: String,
-    pub access_flags: u16,
+    pub access_flags: AccessFlags,
     pub max_stack: u16,
     pub max_locals: u16,
     pub code: Vec<u8>,
@@ -18,7 +18,7 @@ pub struct Method {
 pub struct Field {
     pub name: String,
     pub descriptor: String,
-    pub access_flags: u16,
+    pub access_flags: AccessFlags,
     pub constant_value: Option<String>,
 }
 
@@ -62,7 +62,7 @@ impl Class {
 
             methods.push(Method {
                 name,
-                access_flags: m.access_flags,
+                access_flags: AccessFlags::from(m.access_flags),
                 max_stack,
                 max_locals,
                 code,
@@ -129,7 +129,7 @@ impl Class {
             fields.push(Field {
                 name,
                 descriptor,
-                access_flags: f.access_flags,
+                access_flags: AccessFlags::from(f.access_flags),
                 constant_value,
             });
         }
