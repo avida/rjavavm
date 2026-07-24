@@ -1,7 +1,8 @@
 pub mod java_class {
     use crate::loader::attributes::attributes::*;
     use std::fmt;
-    pub type ConstantPoolInfoTable = Vec<ConstantPoolInfo>;
+    use std::rc::Rc;
+    pub type ConstantPoolInfoTable = Rc<Vec<ConstantPoolInfo>>;
 
     #[derive(Debug)]
     pub struct JavaClass {
@@ -255,7 +256,7 @@ pub mod java_class {
                 minor_version: 0,
                 major_version: 0,
                 constant_pool_count: 0,
-                constant_pool: vec![],
+                constant_pool: Rc::new(vec![]),
                 access_flags: 0,
                 this_class: 0,
                 super_class: 0,

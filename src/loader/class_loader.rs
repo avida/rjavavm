@@ -7,8 +7,8 @@ pub mod class_loader {
     use crate::loader::java_class::java_class::*;
     use crate::utils::*;
     use std::fs;
-    use std::rc::Rc;
     use std::io::{Cursor, Read};
+    use std::rc::Rc;
 
     pub fn read(path: &str) -> Result<Vec<u8>, ClassLoadError> {
         fs::read(path)
@@ -212,7 +212,7 @@ pub mod class_loader {
     fn parse_constant_pool(
         cursor: &mut Cursor<&Vec<u8>>,
         count: u16,
-    ) -> Result<Vec<ConstantPoolInfo>, ClassLoadError> {
+    ) -> Result<ConstantPoolInfoTable, ClassLoadError> {
         let mut constant_pool: Vec<ConstantPoolInfo> = Vec::new();
 
         let mut next_tag: u8 = 0;
@@ -229,7 +229,7 @@ pub mod class_loader {
             let info = parse_constant_pool_info(cursor, tag)?;
             constant_pool.push(ConstantPoolInfo { tag, info });
         }
-        Ok(constant_pool)
+        Ok(Rc::new(constant_pool))
     }
 
     pub fn load(name: &str) -> Result<Rc<JavaClass>, ClassLoadError> {
