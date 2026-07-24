@@ -200,7 +200,7 @@ pub mod attributes {
 }
 #[cfg(test)]
 mod tests {
-    use crate::attributes::attributes::*;
+    use crate::loader::attributes::attributes::*;
     use crate::loader::class_loader::class_loader::*;
     #[test]
     fn test_parse_attribute() {

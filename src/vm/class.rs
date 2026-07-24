@@ -137,3 +137,23 @@ impl Class {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Class;
+    use crate::loader::class_loader::class_loader::load;
+
+    #[test]
+    fn test_class_init_fields_and_methods() {
+        let jclass = load("test/Hello.class").unwrap();
+        let vm_class = Class::init(&jclass);
+        // Hello.class has one static field `hello_str` with ConstantValue "Hello JVM"
+        assert_eq!(vm_class.fields.len(), 1);
+        assert_eq!(vm_class.fields[0].name, "hello_str");
+        assert_eq!(vm_class.fields[0].constant_value.as_deref(), Some("Hello JVM"));
+
+        // Methods include constructor and main
+        let names: Vec<String> = vm_class.methods.iter().map(|m| m.name.clone()).collect();
+        assert!(names.contains(&"main".to_string()));
+    }
+}
