@@ -1,7 +1,9 @@
 use crate::loader::attributes::attributes::{Attribute, parse_attribute_info};
+use crate::loader::java_class::java_class::ConstantPoolPFieldInfo::MethodRef;
 use crate::loader::java_class::java_class::{
     ConstantPoolInfoTable, ConstantPoolPFieldInfo, JavaClass,
 };
+use crate::vm::class;
 
 #[derive(Debug, Clone)]
 pub struct Method {
@@ -28,7 +30,7 @@ pub struct Class {
 }
 
 impl Class {
-    pub fn init(class_info: &JavaClass) -> Self {
+    fn load_methods(class_info: &JavaClass) -> Vec<Method> {
         let mut methods: Vec<Method> = Vec::new();
         for m in &class_info.methods {
             // get name from constant pool
@@ -66,7 +68,9 @@ impl Class {
                 code,
             });
         }
-
+        methods
+    }
+    fn load_fields(class_info: &JavaClass) -> Vec<Field> {
         let mut fields: Vec<Field> = Vec::new();
         for f in &class_info.field_info {
             let name = match &class_info.constant_pool[(f.name_index - 1) as usize].info {
@@ -129,6 +133,12 @@ impl Class {
                 constant_value,
             });
         }
+        fields
+    }
+
+    pub fn init(class_info: &JavaClass) -> Self {
+        let methods = Class::load_methods(class_info);
+        let fields = Class::load_fields(class_info);
 
         Class {
             constant_pool: class_info.constant_pool.clone(),
@@ -150,7 +160,10 @@ mod tests {
         // Hello.class has one static field `hello_str` with ConstantValue "Hello JVM"
         assert_eq!(vm_class.fields.len(), 1);
         assert_eq!(vm_class.fields[0].name, "hello_str");
-        assert_eq!(vm_class.fields[0].constant_value.as_deref(), Some("Hello JVM"));
+        assert_eq!(
+            vm_class.fields[0].constant_value.as_deref(),
+            Some("Hello JVM")
+        );
 
         // Methods include constructor and main
         let names: Vec<String> = vm_class.methods.iter().map(|m| m.name.clone()).collect();
