@@ -11,10 +11,15 @@ pub mod stack {
         class: ClassPtr,
     }
     impl StackFrame {
-        fn new(class: ClassPtr, method_index: u32) -> Result<Self, RunTimeError> {
-            // let method = class.constant_pool.
+        fn make_local_variables() {}
+        pub fn new(class: ClassPtr, method_index: u16) -> Result<Self, RunTimeError> {
+            let method = class
+                .get_method_by_index(method_index)
+                .ok_or_else(|| RunTimeError {
+                    message: "Failed to fetch method".to_string(),
+                })?;
             Ok(Self {
-                operand_stack: OperandStack::new(10),
+                operand_stack: OperandStack::new(method.max_stack),
                 local_variables: vec![],
                 class,
             })

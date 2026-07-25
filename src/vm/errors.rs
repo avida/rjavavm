@@ -1,5 +1,5 @@
 pub mod errors {
-    pub enum RunTimeError {
-
+    pub struct RunTimeError {
+        pub message: String
     }
 }

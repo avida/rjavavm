@@ -1,7 +1,7 @@
 pub mod types {
     pub struct Reference {}
     pub enum Type {
-        Bool,
+        Bool(bool),
         Byte(u8),
         Char(u16),
         Short(u16),
