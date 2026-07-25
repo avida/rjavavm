@@ -1,7 +1,7 @@
-mod utils {
+pub mod utils {
     use std::env;
     use std::path::{Path, PathBuf};
-    fn lookup_class_file(class_name: &str) -> Option<String> {
+    pub fn lookup_class_file(class_name: &str) -> Option<String> {
         // Normalize class name to path form (dots to slashes)
         let mut class_path = class_name.replace('.', "/");
         if !class_path.ends_with(".class") {

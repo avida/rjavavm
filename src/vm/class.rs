@@ -5,6 +5,7 @@ use crate::loader::java_class::java_class::{
 };
 use crate::vm::class;
 use crate::vm::AccessFlags;
+use std::rc::Rc;
 #[derive(Debug, Clone)]
 pub struct Method {
     pub name: String,
@@ -22,6 +23,7 @@ pub struct Field {
     pub constant_value: Option<String>,
 }
 
+pub type ClassPtr = Rc<Class>;
 #[derive(Debug, Clone)]
 pub struct Class {
     pub constant_pool: ConstantPoolInfoTable,

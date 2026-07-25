@@ -1,4 +1,4 @@
-mod stack;
+pub mod stack;
 mod heap;
 mod frame;
 mod method_area;
@@ -7,7 +7,7 @@ mod operand_stack;
 mod class;
 mod access_flags;
 mod byte_code;
-mod runtime;
-mod utils;
+pub mod runtime;
+mod types;
 
 pub use access_flags::AccessFlags;
