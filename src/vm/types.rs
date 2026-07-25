@@ -1,4 +1,5 @@
 pub mod types {
+    pub type VarSlot = [u8; 4];
     pub struct Reference {}
     pub enum Type {
         Bool(bool),

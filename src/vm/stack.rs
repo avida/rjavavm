@@ -7,7 +7,7 @@ pub mod stack {
 
     pub struct StackFrame {
         operand_stack: OperandStack,
-        local_variables: Vec<Type>,
+        local_variables: Vec<VarSlot>,
         class: ClassPtr,
     }
     impl StackFrame {
@@ -18,9 +18,11 @@ pub mod stack {
                 .ok_or_else(|| RunTimeError {
                     message: "Failed to fetch method".to_string(),
                 })?;
+            let mut local_variables: Vec<VarSlot> = vec![];
+            local_variables.resize(method.max_locals as usize, [0, 0, 0, 0]);
             Ok(Self {
                 operand_stack: OperandStack::new(method.max_stack),
-                local_variables: vec![],
+                local_variables,
                 class,
             })
         }
