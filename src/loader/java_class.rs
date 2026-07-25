@@ -3,6 +3,7 @@ pub mod java_class {
     use std::fmt;
     use std::rc::Rc;
     pub type ConstantPoolInfoTable = Rc<Vec<ConstantPoolInfo>>;
+    pub type JavaClassPtr = Rc<JavaClass>;
 
     #[derive(Debug)]
     pub struct JavaClass {

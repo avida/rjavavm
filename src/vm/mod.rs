@@ -7,5 +7,7 @@ mod operand_stack;
 mod class;
 mod access_flags;
 mod byte_code;
+mod runtime;
+mod utils;
 
 pub use access_flags::AccessFlags;

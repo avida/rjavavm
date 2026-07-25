@@ -16,7 +16,7 @@ pub mod class_loader {
             .map_err(|_| ClassLoadError::NotFound("File not found".to_string()))
     }
 
-    pub fn parse(bytes: Vec<u8>) -> Result<Rc<JavaClass>, ClassLoadError> {
+    pub fn parse(bytes: Vec<u8>) -> Result<JavaClassPtr, ClassLoadError> {
         let mut cursor = Cursor::new(&bytes);
         let mut buf = [0u8; 4];
         cursor.read_exact(&mut buf).map_err(|e| {
@@ -232,7 +232,7 @@ pub mod class_loader {
         Ok(Rc::new(constant_pool))
     }
 
-    pub fn load(name: &str) -> Result<Rc<JavaClass>, ClassLoadError> {
+    pub fn load(name: &str) -> Result<JavaClassPtr, ClassLoadError> {
         let data = read(name)?;
         parse(data)
     }
