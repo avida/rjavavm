@@ -1,10 +1,10 @@
 use crate::loader::attributes::attributes::{Attribute, parse_attribute_info};
-use crate::loader::java_class::java_class::ConstantPoolPFieldInfo::MethodRef;
 use crate::loader::java_class::java_class::{
     ConstantPoolInfoTable, ConstantPoolPFieldInfo, JavaClass,
 };
-use crate::vm::class;
 use crate::vm::AccessFlags;
+use crate::vm::class;
+use std::collections::HashMap;
 use std::rc::Rc;
 #[derive(Debug, Clone)]
 pub struct Method {
@@ -27,13 +27,24 @@ pub type ClassPtr = Rc<Class>;
 #[derive(Debug, Clone)]
 pub struct Class {
     pub constant_pool: ConstantPoolInfoTable,
-    pub methods: Vec<Method>,
-    pub fields: Vec<Field>,
+    pub methods: Vec<Rc<Method>>,
+    pub fields: Vec<Rc<Field>>,
+    pub method_by_index: HashMap<u16, Rc<Method>>,
+    pub field_by_index: HashMap<u16, Rc<Field>>,
 }
 
 impl Class {
-    fn load_methods(class_info: &JavaClass) -> Vec<Method> {
-        let mut methods: Vec<Method> = Vec::new();
+    pub fn get_method_by_index(&self, index: u16) -> Option<&Rc<Method>> {
+        self.method_by_index.get(&index)
+    }
+
+    pub fn get_field_by_index(&self, index: u16) -> Option<&Rc<Field>> {
+        self.field_by_index.get(&index)
+    }
+
+    fn load_methods(class_info: &JavaClass) -> (Vec<Rc<Method>>, HashMap<u16, Rc<Method>>) {
+        let mut methods: Vec<Rc<Method>> = Vec::new();
+        let mut method_by_index: HashMap<u16, Rc<Method>> = HashMap::new();
         for m in &class_info.methods {
             // get name from constant pool
             let name = match &class_info.constant_pool[(m.name_index - 1) as usize].info {
@@ -62,18 +73,22 @@ impl Class {
                 }
             }
 
-            methods.push(Method {
+            let method = Rc::new(Method {
                 name,
                 access_flags: AccessFlags::from(m.access_flags),
                 max_stack,
                 max_locals,
                 code,
             });
+            method_by_index.insert(m.name_index, method.clone());
+            methods.push(method);
         }
-        methods
+
+        (methods, method_by_index)
     }
-    fn load_fields(class_info: &JavaClass) -> Vec<Field> {
-        let mut fields: Vec<Field> = Vec::new();
+    fn load_fields(class_info: &JavaClass) -> (Vec<Rc<Field>>, HashMap<u16, Rc<Field>>) {
+        let mut fields: Vec<Rc<Field>> = Vec::new();
+        let mut field_by_index: HashMap<u16, Rc<Field>> = HashMap::new();
         for f in &class_info.field_info {
             let name = match &class_info.constant_pool[(f.name_index - 1) as usize].info {
                 ConstantPoolPFieldInfo::Utf8Info { length: _, bytes } => {
@@ -128,24 +143,28 @@ impl Class {
                 }
             }
 
-            fields.push(Field {
+            let field = Rc::new(Field {
                 name,
                 descriptor,
                 access_flags: AccessFlags::from(f.access_flags),
                 constant_value,
             });
+            field_by_index.insert(f.name_index, Rc::clone(&field));
+            fields.push(field);
         }
-        fields
+        (fields, field_by_index)
     }
 
     pub fn init(class_info: &JavaClass) -> Self {
-        let methods = Class::load_methods(class_info);
-        let fields = Class::load_fields(class_info);
+        let (methods, method_by_index) = Class::load_methods(class_info);
+        let (fields, field_by_index) = Class::load_fields(class_info);
 
         Class {
             constant_pool: class_info.constant_pool.clone(),
             methods,
             fields,
+            method_by_index,
+            field_by_index,
         }
     }
 }

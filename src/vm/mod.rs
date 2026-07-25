@@ -1,13 +1,14 @@
 pub mod stack;
-mod heap;
-mod frame;
-mod method_area;
-mod thread;
-mod operand_stack;
-mod class;
-mod access_flags;
-mod byte_code;
+pub mod heap;
+pub mod frame;
+pub mod method_area;
+pub mod thread;
+pub mod operand_stack;
+pub mod class;
+pub mod access_flags;
+pub mod byte_code;
 pub mod runtime;
-mod types;
+pub mod types;
+pub mod errors;
 
 pub use access_flags::AccessFlags;
