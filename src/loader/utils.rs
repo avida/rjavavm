@@ -38,6 +38,8 @@ pub mod utils {
         use std::env;
         use std::fs;
         use std::path::PathBuf;
+        use std::thread;
+        use std::time::Duration;
 
         fn mk_temp_dir(name: &str) -> PathBuf {
             let mut p = env::temp_dir();
@@ -58,6 +60,8 @@ pub mod utils {
             unsafe {
                 env::set_var("CLASSPATH", dir.to_string_lossy().to_string());
             }
+            // give the OS a moment to settle (e.g., filesystem) before lookup
+            // thread::sleep(Duration::from_millis(10));
 
             let found = lookup_class_file("com.example.Hello");
             assert!(found.is_some());
