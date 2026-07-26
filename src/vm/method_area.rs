@@ -38,6 +38,7 @@ impl MethodArea {
     pub fn len(&self) -> usize {
         self.class_constant_pool_map.len()
     }
+
 }
 
 impl Default for MethodArea {

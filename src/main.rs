@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match lookup_class_file(&class_name) {
             Some(path) => match crate::vm::runtime::Runtime::load_and_init(&path) {
                 Some(runtime) => {
-                    runtime.run(&class_name);
+                    runtime.run(&class_name)?
                 }
                 None => {
                     eprintln!("Failed to load class file at {}", path);

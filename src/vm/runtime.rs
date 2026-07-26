@@ -1,13 +1,14 @@
 use crate::loader::class_loader::class_loader::load;
 use crate::loader::java_class::java_class::{ConstantPoolPFieldInfo, JavaClassPtr};
+use crate::vm::errors::errors::RunTimeError;
 use crate::vm::method_area::MethodArea;
+use crate::vm::thread::thread::Thread;
 use std::env;
 use std::path::PathBuf;
-use crate::vm::thread::thread::Thread;
 
 pub struct Runtime {
     method_area: MethodArea,
-    main_thread: Thread
+    main_thread: Thread,
 }
 
 impl Runtime {
@@ -34,22 +35,28 @@ impl Runtime {
             .unwrap_or_else(|| "<unknown>".to_string());
 
         ma.insert(name, class);
-        Runtime { method_area: ma, 
-            main_thread: Thread::new()
-         }
+        Runtime {
+            method_area: ma,
+            main_thread: Thread::new(),
+        }
     }
 
-    pub fn run(&self, class_name: &str) {
+    pub fn run(&self, class_name: &str) -> Result<(), RunTimeError> {
         if let Some(c) = self.method_area.get(class_name) {
-            let has_main = c.methods.iter().any(|m| m.name == "main");
-            if has_main {
-                println!("Running `main` of class {} (simulation)", class_name);
-            } else {
-                println!("Class {} has no main method", class_name);
-            }
+            let (index, method) = c
+                .method_by_index
+                .iter()
+                .find(|(i, m)| m.name == "main".to_string())
+                .ok_or(RunTimeError::Other("Main method not found".to_string()))?;
+
+            println!(
+                "Running `main` of class {} (simulation) at index {}",
+                class_name, index
+            );
         } else {
-            println!("Class {} not found in method area", class_name);
+            return Err(RunTimeError::Other("Class not found".to_string()));
         }
+        Ok(())
     }
 
     pub fn load_and_init(class_path: &str) -> Option<Self> {

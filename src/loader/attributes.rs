@@ -21,6 +21,11 @@ pub mod attributes {
         catch_type: u16,
     }
     #[derive(Debug)]
+    pub struct LineNumberTableRecord {
+        start_pc: u16,
+        line_number: u16,
+    }
+    #[derive(Debug)]
     pub enum Attribute {
         ConstantVale {
             attribute_name_index: u16,
@@ -37,7 +42,13 @@ pub mod attributes {
             exception_table_length: u16,
             exception_table: Vec<ExceptionTableRecord>,
             attributes_count: u16,
-            attributes: Vec<AttributeInfo>,
+            attributes: Vec<Attribute>,
+        },
+        LineNumberTabel {
+            attribute_name_index: u16,
+            attribute_length: u32,
+            line_number_table_length: u16,
+            line_number_table: Vec<LineNumberTableRecord>,
         },
     }
 
@@ -94,6 +105,31 @@ pub mod attributes {
                     }
                     Ok(())
                 }
+                Attribute::LineNumberTabel {
+                    attribute_name_index,
+                    attribute_length,
+                    line_number_table_length,
+                    line_number_table,
+                } => {
+                    write!(
+                        f,
+                        "LineNumberTable(name_index={}, length={}, table_length={})",
+                        attribute_name_index, attribute_length, line_number_table_length
+                    )?;
+                    if !line_number_table.is_empty() {
+                        writeln!(f)?;
+                        for (i, record) in line_number_table.iter().enumerate() {
+                            writeln!(
+                                f,
+                                "        #{}: start_pc={}, line_number={}",
+                                i + 1,
+                                record.start_pc,
+                                record.line_number
+                            )?;
+                        }
+                    }
+                    Ok(())
+                }
             }
         }
     }
@@ -141,7 +177,12 @@ pub mod attributes {
                         });
                     }
                     let attributes_count = read_2_bytes!(c);
-                    let attributes = parse_attributes(&mut c, attributes_count)?;
+                    let attributes_info = parse_attributes(&mut c, attributes_count)?;
+
+                    let attributes = attributes_info
+                        .iter()
+                        .map(|a_i| parse_attribute_info(a_i, constant_pool).unwrap())
+                        .collect();
                     return Ok(Attribute::Code {
                         attribute_name_index: attribute_info.attribute_name_index,
                         attribute_length: attribute_info.attribute_length,
@@ -162,6 +203,25 @@ pub mod attributes {
                         attribute_name_index: attribute_info.attribute_name_index,
                         attribute_length: attribute_info.attribute_length,
                         constantvalue_index,
+                    });
+                }
+                "LineNumberTable" => {
+                    let mut c = std::io::Cursor::new(&attribute_info.info);
+                    let line_number_table_length = read_2_bytes!(c);
+                    let mut line_number_table: Vec<LineNumberTableRecord> = Vec::new();
+                    for _ in 0..line_number_table_length {
+                        let start_pc = read_2_bytes!(c);
+                        let line_number = read_2_bytes!(c);
+                        line_number_table.push(LineNumberTableRecord {
+                            start_pc,
+                            line_number,
+                        });
+                    }
+                    return Ok(Attribute::LineNumberTabel {
+                        attribute_name_index: attribute_info.attribute_name_index,
+                        attribute_length: attribute_info.attribute_length,
+                        line_number_table_length,
+                        line_number_table,
                     });
                 }
                 _ => {

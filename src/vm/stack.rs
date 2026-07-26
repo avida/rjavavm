@@ -18,9 +18,7 @@ pub mod stack {
         pub fn new(class: ClassPtr, method_index: u16) -> Result<Self, RunTimeError> {
             let method = class
                 .get_method_by_index(method_index)
-                .ok_or_else(|| RunTimeError {
-                    message: "Failed to fetch method".to_string(),
-                })?;
+                .ok_or_else(|| RunTimeError::Other("Failed to fetch method".to_string()))?;
             let mut local_variables: Vec<VarSlot> = vec![];
             local_variables.resize(method.max_locals as usize, [0, 0, 0, 0]);
             Ok(Self {
@@ -33,15 +31,15 @@ pub mod stack {
             let frame = Self::new(class, method_index)?;
             Ok(Rc::new(RefCell::new(frame)))
         }
-        pub fn get_variable_value<T: LocalVariableValue>(&self, slot: u16) -> Result<T, RunTimeError> {
+        pub fn get_variable_value<T: LocalVariableValue>(
+            &self,
+            slot: u16,
+        ) -> Result<T, RunTimeError> {
             let start = slot as usize;
             let end = start + T::slot_count();
-            let slots = self
-                .local_variables
-                .get(start..end)
-                .ok_or_else(|| RunTimeError {
-                    message: "Local variable slot out of range".to_string(),
-                })?;
+            let slots = self.local_variables.get(start..end).ok_or_else(|| {
+                RunTimeError::Other("Local variable slot out of range".to_string())
+            })?;
             Ok(T::from_slots(slots))
         }
         pub fn set_variable_value<T: LocalVariableValue>(
@@ -51,12 +49,9 @@ pub mod stack {
         ) -> Result<(), RunTimeError> {
             let start = slot as usize;
             let end = start + T::slot_count();
-            let slots = self
-                .local_variables
-                .get_mut(start..end)
-                .ok_or_else(|| RunTimeError {
-                    message: "Local variable slot out of range".to_string(),
-                })?;
+            let slots = self.local_variables.get_mut(start..end).ok_or_else(|| {
+                RunTimeError::Other("Local variable slot out of range".to_string())
+            })?;
             slots.copy_from_slice(&value.into_slots());
             Ok(())
         }

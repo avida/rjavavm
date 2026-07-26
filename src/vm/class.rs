@@ -13,6 +13,7 @@ pub struct Method {
     pub max_stack: u16,
     pub max_locals: u16,
     pub code: Vec<u8>,
+    // pub attributes: Vec<Attribute>
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +37,13 @@ pub struct Class {
 impl Class {
     pub fn get_method_by_index(&self, index: u16) -> Option<&Rc<Method>> {
         self.method_by_index.get(&index)
+    }
+
+    pub fn find_method_index_by_name(&self, name: &str) -> Option<u16> {
+        self.method_by_index
+            .iter()
+            .find(|(_, method)| method.name == name)
+            .map(|(index, _)| *index)
     }
 
     pub fn get_field_by_index(&self, index: u16) -> Option<&Rc<Field>> {
@@ -81,6 +89,7 @@ impl Class {
                 code,
             });
             method_by_index.insert(m.name_index, method.clone());
+
             methods.push(method);
         }
 
