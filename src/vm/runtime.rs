@@ -5,6 +5,7 @@ use crate::vm::method_area::MethodArea;
 use crate::vm::thread::thread::Thread;
 use std::env;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 pub struct Runtime {
     method_area: MethodArea,
@@ -14,7 +15,7 @@ pub struct Runtime {
 impl Runtime {
     pub fn init(java_class: JavaClassPtr) -> Self {
         let mut ma = MethodArea::new();
-        let class = crate::vm::class::Class::init(&java_class);
+        let class = Rc::new(crate::vm::class::Class::init(&java_class));
 
         // try to resolve the class name from constant pool
         let name = java_class
@@ -41,9 +42,9 @@ impl Runtime {
         }
     }
 
-    pub fn run(&self, class_name: &str) -> Result<(), RunTimeError> {
-        if let Some(c) = self.method_area.get(class_name) {
-            let (index, method) = c
+    pub fn run(&mut self, class_name: &str) -> Result<(), RunTimeError> {
+        if let Some(class) = self.method_area.get(class_name) {
+            let (index, method) = class
                 .method_by_index
                 .iter()
                 .find(|(i, m)| m.name == "main".to_string())
@@ -53,6 +54,7 @@ impl Runtime {
                 "Running `main` of class {} (simulation) at index {}",
                 class_name, index
             );
+            self.main_thread.invoke(class.clone(), *index);
         } else {
             return Err(RunTimeError::Other("Class not found".to_string()));
         }

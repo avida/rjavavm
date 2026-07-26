@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use crate::vm::class::Class;
+use crate::vm::class::ClassPtr;
 
 
 pub struct MethodArea {
-    pub class_constant_pool_map: HashMap<String, Class>,
+    pub class_constant_pool_map: HashMap<String, ClassPtr>,
 }
 
 impl MethodArea {
@@ -13,21 +13,21 @@ impl MethodArea {
         }
     }
 
-    pub fn init(class_name: String, pool: Class) -> Self {
+    pub fn init(class_name: String, pool: ClassPtr) -> Self {
         let mut ma = MethodArea::new();
         ma.insert(class_name, pool);
         ma
     }
 
-    pub fn insert(&mut self, class_name: String, pool: Class) {
+    pub fn insert(&mut self, class_name: String, pool: ClassPtr) {
         self.class_constant_pool_map.insert(class_name, pool);
     }
 
-    pub fn get(&self, class_name: &str) -> Option<&Class> {
+    pub fn get(&self, class_name: &str) -> Option<&ClassPtr> {
         self.class_constant_pool_map.get(class_name)
     }
 
-    pub fn remove(&mut self, class_name: &str) -> Option<Class> {
+    pub fn remove(&mut self, class_name: &str) -> Option<ClassPtr> {
         self.class_constant_pool_map.remove(class_name)
     }
 

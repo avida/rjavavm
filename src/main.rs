@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Find class file and load/init runtime
         match lookup_class_file(&class_name) {
             Some(path) => match crate::vm::runtime::Runtime::load_and_init(&path) {
-                Some(runtime) => {
+                Some(mut runtime) => {
                     runtime.run(&class_name)?
                 }
                 None => {
