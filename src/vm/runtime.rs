@@ -3,9 +3,11 @@ use crate::loader::java_class::java_class::{ConstantPoolPFieldInfo, JavaClassPtr
 use crate::vm::method_area::MethodArea;
 use std::env;
 use std::path::PathBuf;
+use crate::vm::thread::thread::Thread;
 
 pub struct Runtime {
     method_area: MethodArea,
+    main_thread: Thread
 }
 
 impl Runtime {
@@ -32,7 +34,9 @@ impl Runtime {
             .unwrap_or_else(|| "<unknown>".to_string());
 
         ma.insert(name, class);
-        Runtime { method_area: ma }
+        Runtime { method_area: ma, 
+            main_thread: Thread::new()
+         }
     }
 
     pub fn run(&self, class_name: &str) {
