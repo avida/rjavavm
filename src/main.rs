@@ -4,7 +4,7 @@ mod loader;
 mod utils;
 mod vm;
 
-use crate::loader::class_loader::class_loader::load;
+use crate::{loader::class_loader::class_loader::load, vm::errors::errors::RunTimeError};
 use crate::loader::utils::utils::lookup_class_file;
 use clap::{CommandFactory, Parser};
 
@@ -39,7 +39,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match lookup_class_file(&class_name) {
             Some(path) => match crate::vm::runtime::Runtime::load_and_init(&path) {
                 Some(mut runtime) => {
-                    runtime.run(&class_name)?
+                    match runtime.run(&class_name) {
+                        Ok(()) => {
+                            println!("Execution finished successfully");
+                        }
+                        Err(e) => {
+                            eprintln!("Runtime error: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
                 }
                 None => {
                     eprintln!("Failed to load class file at {}", path);

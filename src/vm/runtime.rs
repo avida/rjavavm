@@ -54,7 +54,8 @@ impl Runtime {
                 "Running `main` of class {} (simulation) at index {}",
                 class_name, index
             );
-            self.main_thread.invoke(class.clone(), *index);
+            self.main_thread.invoke(class.clone(), *index)?;
+            self.main_thread.run()?;
         } else {
             return Err(RunTimeError::Other("Class not found".to_string()));
         }

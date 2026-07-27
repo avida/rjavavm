@@ -5,11 +5,13 @@ pub mod errors {
     #[derive(Debug)]
     pub enum RunTimeError {
         Other(String),
+        UnknownInstruction(u8),
     }
     impl fmt::Display for RunTimeError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 RunTimeError::Other(message) => write!(f, "{}", message),
+                RunTimeError::UnknownInstruction(op) => write!(f, "Unknown instruction: 0x{:02x}", op),
             }
         }
     }

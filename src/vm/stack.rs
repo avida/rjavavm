@@ -1,6 +1,6 @@
 pub mod stack {
     use crate::loader::java_class::java_class::ConstantPoolInfoTable;
-    use crate::vm::class::{Class, ClassPtr};
+    use crate::vm::class::{Class, ClassPtr, Method};
     use crate::vm::errors::errors::*;
     use crate::vm::operand_stack::operand_stack::OperandStack;
     use crate::vm::types::types::*;
@@ -8,9 +8,10 @@ pub mod stack {
     use std::rc::Rc;
 
     pub struct StackFrame {
+        pub class: ClassPtr,
+        pub method: Rc<Method>,
         operand_stack: OperandStack,
         local_variables: Vec<VarSlot>,
-        class: ClassPtr,
     }
     pub type StackFramePtr = Rc<RefCell<StackFrame>>;
     impl StackFrame {
@@ -24,7 +25,8 @@ pub mod stack {
             Ok(Self {
                 operand_stack: OperandStack::new(method.max_stack),
                 local_variables,
-                class,
+                class: class.clone(),
+                method: method.clone(),
             })
         }
         pub fn new_ptr(class: ClassPtr, method_index: u16) -> Result<StackFramePtr, RunTimeError> {
@@ -148,10 +150,14 @@ pub mod stack {
 
     pub struct Stack {
         frames: Vec<StackFramePtr>,
+        program_counter: u32,
     }
     impl Stack {
         pub fn new() -> Self {
-            Self { frames: Vec::new() }
+            Self {
+                frames: Vec::new(),
+                program_counter: 0,
+            }
         }
 
         pub fn push_frame(&mut self, frame: StackFramePtr) {
@@ -161,12 +167,41 @@ pub mod stack {
         pub fn pop_frame(&mut self) -> Option<StackFramePtr> {
             self.frames.pop()
         }
+        pub fn top_frame(&self) -> Option<StackFramePtr> {
+            if self.frames.is_empty() {
+                return None;
+            }
+            Some(self.frames[self.frames.len() - 1].clone())
+        }
+        pub fn program_counter(&self) -> u32 {
+            self.program_counter
+        }
+
+        pub fn set_pc(&mut self, pc: u32) {
+            self.program_counter = pc;
+        }
+        pub fn move_pc_next(&mut self) {
+            self.increase_pc(1);
+        }
+
+        pub fn increase_pc(&mut self, delta: u32) {
+            self.program_counter = self.program_counter.wrapping_add(delta);
+        }
+
+        pub fn decrease_pc(&mut self, delta: u32) {
+            self.program_counter = self.program_counter.wrapping_sub(delta);
+        }
+
+        pub fn jump_pc(&mut self, addr: u32) {
+            self.program_counter = addr;
+        }
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
         use std::collections::HashMap;
+        use crate::vm::AccessFlags;
 
         fn dummy_class() -> ClassPtr {
             Rc::new(Class {
@@ -183,6 +218,7 @@ pub mod stack {
                 operand_stack: OperandStack::new(0),
                 local_variables: vec![[0, 0, 0, 0]; size],
                 class: dummy_class(),
+                method: Rc::new(Method { name: "<dummy>".to_string(), access_flags: AccessFlags::from(0u16), max_stack: 0, max_locals: 0, code: vec![] }),
             }
         }
 
