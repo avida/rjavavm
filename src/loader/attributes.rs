@@ -123,6 +123,12 @@ pub mod attributes {
             num_annotations: u16,
             annotations: Vec<Annotation>,
         },
+        Exceptions {
+            attribute_name_index: u16,
+            attribute_length: u32,
+            number_of_exceptions: u16,
+            exception_index_table: Vec<u16>,
+        },
     }
 
     impl fmt::Display for Attribute {
@@ -284,6 +290,25 @@ pub mod attributes {
                         writeln!(f)?;
                         for (i, a) in annotations.iter().enumerate() {
                             writeln!(f, "        #{}: {}", i + 1, a)?;
+                        }
+                    }
+                    Ok(())
+                }
+                Attribute::Exceptions {
+                    attribute_name_index,
+                    attribute_length,
+                    number_of_exceptions,
+                    exception_index_table,
+                } => {
+                    write!(
+                        f,
+                        "Exceptions(name_index={}, length={}, count={})",
+                        attribute_name_index, attribute_length, number_of_exceptions
+                    )?;
+                    if !exception_index_table.is_empty() {
+                        writeln!(f)?;
+                        for (i, idx) in exception_index_table.iter().enumerate() {
+                            writeln!(f, "        #{}: exception_index={}", i + 1, idx)?;
                         }
                     }
                     Ok(())
@@ -497,6 +522,20 @@ pub mod attributes {
                         attribute_length: attribute_info.attribute_length,
                         number_of_entries,
                         entries,
+                    });
+                }
+                "Exceptions" => {
+                    let mut c = std::io::Cursor::new(&attribute_info.info);
+                    let number_of_exceptions = read_2_bytes!(c);
+                    let mut exception_index_table: Vec<u16> = Vec::new();
+                    for _ in 0..number_of_exceptions {
+                        exception_index_table.push(read_2_bytes!(c));
+                    }
+                    return Ok(Attribute::Exceptions {
+                        attribute_name_index: attribute_info.attribute_name_index,
+                        attribute_length: attribute_info.attribute_length,
+                        number_of_exceptions,
+                        exception_index_table,
                     });
                 }
                 "RuntimeVisibleAnnotations" | "RuntimeInvisibleAnnotations" => {
