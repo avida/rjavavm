@@ -42,13 +42,37 @@ pub mod attributes {
 
     #[derive(Debug)]
     pub enum StackMapFrame {
-        SameFrame { frame_type: u8 },
-        SameLocals1StackItemFrame { frame_type: u8, stack: Vec<VerificationTypeInfo> },
-        SameLocals1StackItemFrameExtended { frame_type: u8, offset_delta: u16, stack: Vec<VerificationTypeInfo> },
-        ChopFrame { frame_type: u8, offset_delta: u16 },
-        SameFrameExtended { frame_type: u8, offset_delta: u16 },
-        AppendFrame { frame_type: u8, offset_delta: u16, locals: Vec<VerificationTypeInfo> },
-        FullFrame { frame_type: u8, offset_delta: u16, locals: Vec<VerificationTypeInfo>, stack: Vec<VerificationTypeInfo> },
+        SameFrame {
+            frame_type: u8,
+        },
+        SameLocals1StackItemFrame {
+            frame_type: u8,
+            stack: Vec<VerificationTypeInfo>,
+        },
+        SameLocals1StackItemFrameExtended {
+            frame_type: u8,
+            offset_delta: u16,
+            stack: Vec<VerificationTypeInfo>,
+        },
+        ChopFrame {
+            frame_type: u8,
+            offset_delta: u16,
+        },
+        SameFrameExtended {
+            frame_type: u8,
+            offset_delta: u16,
+        },
+        AppendFrame {
+            frame_type: u8,
+            offset_delta: u16,
+            locals: Vec<VerificationTypeInfo>,
+        },
+        FullFrame {
+            frame_type: u8,
+            offset_delta: u16,
+            locals: Vec<VerificationTypeInfo>,
+            stack: Vec<VerificationTypeInfo>,
+        },
     }
     #[derive(Debug)]
     pub enum Attribute {
@@ -226,22 +250,40 @@ pub mod attributes {
                     }
                     Ok(())
                 }
-                Attribute::RuntimeVisibleAnnotations { attribute_name_index, attribute_length, num_annotations, annotations } => {
-                    write!(f, "RuntimeVisibleAnnotations(name_index={}, length={}, count={})", attribute_name_index, attribute_length, num_annotations)?;
+                Attribute::RuntimeVisibleAnnotations {
+                    attribute_name_index,
+                    attribute_length,
+                    num_annotations,
+                    annotations,
+                } => {
+                    write!(
+                        f,
+                        "RuntimeVisibleAnnotations(name_index={}, length={}, count={})",
+                        attribute_name_index, attribute_length, num_annotations
+                    )?;
                     if !annotations.is_empty() {
                         writeln!(f)?;
                         for (i, a) in annotations.iter().enumerate() {
-                            writeln!(f, "        #{}: {}", i+1, a)?;
+                            writeln!(f, "        #{}: {}", i + 1, a)?;
                         }
                     }
                     Ok(())
                 }
-                Attribute::RuntimeInvisibleAnnotations { attribute_name_index, attribute_length, num_annotations, annotations } => {
-                    write!(f, "RuntimeInvisibleAnnotations(name_index={}, length={}, count={})", attribute_name_index, attribute_length, num_annotations)?;
+                Attribute::RuntimeInvisibleAnnotations {
+                    attribute_name_index,
+                    attribute_length,
+                    num_annotations,
+                    annotations,
+                } => {
+                    write!(
+                        f,
+                        "RuntimeInvisibleAnnotations(name_index={}, length={}, count={})",
+                        attribute_name_index, attribute_length, num_annotations
+                    )?;
                     if !annotations.is_empty() {
                         writeln!(f)?;
                         for (i, a) in annotations.iter().enumerate() {
-                            writeln!(f, "        #{}: {}", i+1, a)?;
+                            writeln!(f, "        #{}: {}", i + 1, a)?;
                         }
                     }
                     Ok(())
@@ -279,7 +321,11 @@ pub mod attributes {
 
     impl fmt::Display for Annotation {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "Annotation(type_index={}, pairs={})", self.type_index, self.num_element_value_pairs)
+            write!(
+                f,
+                "Annotation(type_index={}, pairs={})",
+                self.type_index, self.num_element_value_pairs
+            )
         }
     }
 
@@ -377,21 +423,34 @@ pub mod attributes {
                                 // one stack item
                                 let mut stack = Vec::new();
                                 stack.push(parse_verification_type_info(&mut c)?);
-                                entries.push(StackMapFrame::SameLocals1StackItemFrame { frame_type, stack });
+                                entries.push(StackMapFrame::SameLocals1StackItemFrame {
+                                    frame_type,
+                                    stack,
+                                });
                             }
                             247 => {
                                 let offset_delta = read_2_bytes!(c);
                                 let mut stack = Vec::new();
                                 stack.push(parse_verification_type_info(&mut c)?);
-                                entries.push(StackMapFrame::SameLocals1StackItemFrameExtended { frame_type, offset_delta, stack });
+                                entries.push(StackMapFrame::SameLocals1StackItemFrameExtended {
+                                    frame_type,
+                                    offset_delta,
+                                    stack,
+                                });
                             }
                             248..=250 => {
                                 let offset_delta = read_2_bytes!(c);
-                                entries.push(StackMapFrame::ChopFrame { frame_type, offset_delta });
+                                entries.push(StackMapFrame::ChopFrame {
+                                    frame_type,
+                                    offset_delta,
+                                });
                             }
                             251 => {
                                 let offset_delta = read_2_bytes!(c);
-                                entries.push(StackMapFrame::SameFrameExtended { frame_type, offset_delta });
+                                entries.push(StackMapFrame::SameFrameExtended {
+                                    frame_type,
+                                    offset_delta,
+                                });
                             }
                             252..=254 => {
                                 let offset_delta = read_2_bytes!(c);
@@ -400,7 +459,11 @@ pub mod attributes {
                                 for _ in 0..k {
                                     locals.push(parse_verification_type_info(&mut c)?);
                                 }
-                                entries.push(StackMapFrame::AppendFrame { frame_type, offset_delta, locals });
+                                entries.push(StackMapFrame::AppendFrame {
+                                    frame_type,
+                                    offset_delta,
+                                    locals,
+                                });
                             }
                             255 => {
                                 let offset_delta = read_2_bytes!(c);
@@ -414,10 +477,18 @@ pub mod attributes {
                                 for _ in 0..number_of_stack_items {
                                     stack.push(parse_verification_type_info(&mut c)?);
                                 }
-                                entries.push(StackMapFrame::FullFrame { frame_type, offset_delta, locals, stack });
+                                entries.push(StackMapFrame::FullFrame {
+                                    frame_type,
+                                    offset_delta,
+                                    locals,
+                                    stack,
+                                });
                             }
                             _ => {
-                                return Err(ClassLoadError::Other(format!("Unknown frame_type {}", frame_type)));
+                                return Err(ClassLoadError::Other(format!(
+                                    "Unknown frame_type {}",
+                                    frame_type
+                                )));
                             }
                         }
                     }
@@ -441,7 +512,11 @@ pub mod attributes {
                             let ev = parse_element_value(&mut c)?;
                             elements.push((element_name_index, ev));
                         }
-                        annotations.push(Annotation { type_index, num_element_value_pairs, elements });
+                        annotations.push(Annotation {
+                            type_index,
+                            num_element_value_pairs,
+                            elements,
+                        });
                     }
                     if attr_name == "RuntimeVisibleAnnotations" {
                         return Ok(Attribute::RuntimeVisibleAnnotations {
@@ -496,18 +571,32 @@ pub mod attributes {
         ))
     }
 
-    fn parse_verification_type_info(c: &mut Cursor<&Vec<u8>>) -> Result<VerificationTypeInfo, ClassLoadError> {
+    fn parse_verification_type_info(
+        c: &mut Cursor<&Vec<u8>>,
+    ) -> Result<VerificationTypeInfo, ClassLoadError> {
         let tag = c.read_u8().map_err(map_error)?;
         match tag {
             7 => {
                 let cpool_index = read_2_bytes!(c);
-                Ok(VerificationTypeInfo { tag, cpool_index: Some(cpool_index), offset: None })
+                Ok(VerificationTypeInfo {
+                    tag,
+                    cpool_index: Some(cpool_index),
+                    offset: None,
+                })
             }
             8 => {
                 let offset = read_2_bytes!(c);
-                Ok(VerificationTypeInfo { tag, cpool_index: None, offset: Some(offset) })
+                Ok(VerificationTypeInfo {
+                    tag,
+                    cpool_index: None,
+                    offset: Some(offset),
+                })
             }
-            _ => Ok(VerificationTypeInfo { tag, cpool_index: None, offset: None }),
+            _ => Ok(VerificationTypeInfo {
+                tag,
+                cpool_index: None,
+                offset: None,
+            }),
         }
     }
 
@@ -516,20 +605,48 @@ pub mod attributes {
         match tag as char {
             'B' | 'C' | 'D' | 'F' | 'I' | 'J' | 'S' | 'Z' | 's' => {
                 let idx = read_2_bytes!(c);
-                Ok(ElementValue { tag, const_value_index: Some(idx), type_name_index: None, const_name_index: None, annotation_value: None, array_values: None })
+                Ok(ElementValue {
+                    tag,
+                    const_value_index: Some(idx),
+                    type_name_index: None,
+                    const_name_index: None,
+                    annotation_value: None,
+                    array_values: None,
+                })
             }
             'e' => {
                 let type_name_index = read_2_bytes!(c);
                 let const_name_index = read_2_bytes!(c);
-                Ok(ElementValue { tag, const_value_index: None, type_name_index: Some(type_name_index), const_name_index: Some(const_name_index), annotation_value: None, array_values: None })
+                Ok(ElementValue {
+                    tag,
+                    const_value_index: None,
+                    type_name_index: Some(type_name_index),
+                    const_name_index: Some(const_name_index),
+                    annotation_value: None,
+                    array_values: None,
+                })
             }
             'c' => {
                 let idx = read_2_bytes!(c);
-                Ok(ElementValue { tag, const_value_index: Some(idx), type_name_index: None, const_name_index: None, annotation_value: None, array_values: None })
+                Ok(ElementValue {
+                    tag,
+                    const_value_index: Some(idx),
+                    type_name_index: None,
+                    const_name_index: None,
+                    annotation_value: None,
+                    array_values: None,
+                })
             }
             '@' => {
                 let annotation = parse_annotation(c)?;
-                Ok(ElementValue { tag, const_value_index: None, type_name_index: None, const_name_index: None, annotation_value: Some(annotation), array_values: None })
+                Ok(ElementValue {
+                    tag,
+                    const_value_index: None,
+                    type_name_index: None,
+                    const_name_index: None,
+                    annotation_value: Some(annotation),
+                    array_values: None,
+                })
             }
             '[' => {
                 let num_values = read_2_bytes!(c);
@@ -537,9 +654,19 @@ pub mod attributes {
                 for _ in 0..num_values {
                     vals.push(parse_element_value(c)?);
                 }
-                Ok(ElementValue { tag, const_value_index: None, type_name_index: None, const_name_index: None, annotation_value: None, array_values: Some(vals) })
+                Ok(ElementValue {
+                    tag,
+                    const_value_index: None,
+                    type_name_index: None,
+                    const_name_index: None,
+                    annotation_value: None,
+                    array_values: Some(vals),
+                })
             }
-            _ => Err(ClassLoadError::InvalidFormat(format!("Unknown element_value tag {}", tag))),
+            _ => Err(ClassLoadError::InvalidFormat(format!(
+                "Unknown element_value tag {}",
+                tag
+            ))),
         }
     }
 
@@ -552,7 +679,11 @@ pub mod attributes {
             let ev = parse_element_value(c)?;
             elements.push((element_name_index, ev));
         }
-        Ok(Annotation { type_index, num_element_value_pairs, elements })
+        Ok(Annotation {
+            type_index,
+            num_element_value_pairs,
+            elements,
+        })
     }
 
     pub fn parse_attributes(
