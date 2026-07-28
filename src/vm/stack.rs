@@ -14,6 +14,10 @@ pub mod stack {
         local_variables: Vec<VarSlot>,
     }
     pub type StackFramePtr = Rc<RefCell<StackFrame>>;
+    pub struct Stack {
+        frames: Vec<StackFramePtr>,
+        program_counter: usize,
+    }
     impl StackFrame {
         fn make_local_variables() {}
         pub fn new(class: ClassPtr, method_index: u16) -> Result<Self, RunTimeError> {
@@ -148,10 +152,6 @@ pub mod stack {
         }
     }
 
-    pub struct Stack {
-        frames: Vec<StackFramePtr>,
-        program_counter: u32,
-    }
     impl Stack {
         pub fn new() -> Self {
             Self {
@@ -173,26 +173,29 @@ pub mod stack {
             }
             Some(self.frames[self.frames.len() - 1].clone())
         }
-        pub fn program_counter(&self) -> u32 {
+        pub fn program_counter(&self) -> usize {
+            self.program_counter
+        }
+        pub fn get_pc(&self) -> usize {
             self.program_counter
         }
 
-        pub fn set_pc(&mut self, pc: u32) {
+        pub fn set_pc(&mut self, pc: usize) {
             self.program_counter = pc;
         }
         pub fn move_pc_next(&mut self) {
             self.increase_pc(1);
         }
 
-        pub fn increase_pc(&mut self, delta: u32) {
+        pub fn increase_pc(&mut self, delta: usize) {
             self.program_counter = self.program_counter.wrapping_add(delta);
         }
 
-        pub fn decrease_pc(&mut self, delta: u32) {
+        pub fn decrease_pc(&mut self, delta: usize) {
             self.program_counter = self.program_counter.wrapping_sub(delta);
         }
 
-        pub fn jump_pc(&mut self, addr: u32) {
+        pub fn jump_pc(&mut self, addr: usize) {
             self.program_counter = addr;
         }
     }
@@ -200,8 +203,8 @@ pub mod stack {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use std::collections::HashMap;
         use crate::vm::AccessFlags;
+        use std::collections::HashMap;
 
         fn dummy_class() -> ClassPtr {
             Rc::new(Class {
@@ -218,7 +221,13 @@ pub mod stack {
                 operand_stack: OperandStack::new(0),
                 local_variables: vec![[0, 0, 0, 0]; size],
                 class: dummy_class(),
-                method: Rc::new(Method { name: "<dummy>".to_string(), access_flags: AccessFlags::from(0u16), max_stack: 0, max_locals: 0, code: vec![] }),
+                method: Rc::new(Method {
+                    name: "<dummy>".to_string(),
+                    access_flags: AccessFlags::from(0u16),
+                    max_stack: 0,
+                    max_locals: 0,
+                    code: vec![],
+                }),
             }
         }
 

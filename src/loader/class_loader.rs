@@ -242,7 +242,7 @@ pub mod class_loader {
                 })?;
             let tag = ConstantPoolTag::try_from(next_tag).unwrap();
             let info = parse_constant_pool_info(cursor, tag)?;
-            println!("{} of {count} {tag} {next_tag} {info}", idx);
+            // println!("{} of {count} {tag} {next_tag} {info}", idx);
             constant_pool.push(ConstantPoolInfo { tag, info });
 
             // Long and Double take up two entries in the constant pool table.
