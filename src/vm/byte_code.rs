@@ -47,7 +47,6 @@ pub mod byte_code {
         }
         let op = bytes[offset];
         let index = offset;
-        let mut i = offset + 1;
 
         let (instruction, arg_len) = match op {
             0x11 => (Instruction::Sipush, 2),
@@ -84,25 +83,25 @@ pub mod byte_code {
             }
         };
 
-        if i + arg_len > bytes.len() {
+        let arg_offset = index + 1;
+        if arg_offset + arg_len > bytes.len() {
             return Err(RunTimeError::Other(
                 "Not enough bytes for instruction arguments".to_string(),
             ));
         }
 
-        let args = &bytes[i..i + arg_len];
-        i += arg_len;
+        let args = &bytes[arg_offset..arg_offset + arg_len];
 
-        Ok((Op { index, instruction, args }, i))
+        Ok((Op { index, instruction, args }, arg_len))
     }
 
     pub fn parse<'a>(bytes: &'a [u8]) -> Result<Vec<Op<'a>>, RunTimeError> {
         let mut result: Vec<Op<'a>> = Vec::new();
         let mut i: usize = 0;
         while i < bytes.len() {
-            let (op, next_i) = parse_op_at(bytes, i)?;
+            let (op, arg_len) = parse_op_at(bytes, i)?;
             result.push(op);
-            i = next_i;
+            i += 1 + arg_len;
         }
 
         Ok(result)
