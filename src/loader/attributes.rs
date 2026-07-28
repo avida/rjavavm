@@ -34,6 +34,14 @@ pub mod attributes {
         index: u16,
     }
     #[derive(Debug)]
+    pub struct LocalVariableTypeTableRecord {
+        start_pc: u16,
+        length: u16,
+        name_index: u16,
+        signature_index: u16,
+        index: u16,
+    }
+    #[derive(Debug)]
     pub struct VerificationTypeInfo {
         pub tag: u8,
         pub cpool_index: Option<u16>,
@@ -104,6 +112,12 @@ pub mod attributes {
             attribute_length: u32,
             local_variable_table_length: u16,
             local_variable_table: Vec<LocalVariableTableRecord>,
+        },
+        LocalVariableTypeTable {
+            attribute_name_index: u16,
+            attribute_length: u32,
+            local_variable_type_table_length: u16,
+            local_variable_type_table: Vec<LocalVariableTypeTableRecord>,
         },
         StackMapTable {
             attribute_name_index: u16,
@@ -246,6 +260,34 @@ pub mod attributes {
                                 record.length,
                                 record.name_index,
                                 record.descriptor_index,
+                                record.index
+                            )?;
+                        }
+                    }
+                    Ok(())
+                }
+                Attribute::LocalVariableTypeTable {
+                    attribute_name_index,
+                    attribute_length,
+                    local_variable_type_table_length,
+                    local_variable_type_table,
+                } => {
+                    write!(
+                        f,
+                        "LocalVariableTypeTable(name_index={}, length={}, table_length={})",
+                        attribute_name_index, attribute_length, local_variable_type_table_length
+                    )?;
+                    if !local_variable_type_table.is_empty() {
+                        writeln!(f)?;
+                        for (i, record) in local_variable_type_table.iter().enumerate() {
+                            writeln!(
+                                f,
+                                "        #{}: start_pc={}, length={}, name_index={}, signature_index={}, index={}",
+                                i + 1,
+                                record.start_pc,
+                                record.length,
+                                record.name_index,
+                                record.signature_index,
                                 record.index
                             )?;
                         }
@@ -664,6 +706,31 @@ pub mod attributes {
                         attribute_length: attribute_info.attribute_length,
                         local_variable_table_length,
                         local_variable_table,
+                    });
+                }
+                "LocalVariableTypeTable" => {
+                    let mut c = std::io::Cursor::new(&attribute_info.info);
+                    let local_variable_type_table_length = read_2_bytes!(c);
+                    let mut local_variable_type_table: Vec<LocalVariableTypeTableRecord> = Vec::new();
+                    for _ in 0..local_variable_type_table_length {
+                        let start_pc = read_2_bytes!(c);
+                        let length = read_2_bytes!(c);
+                        let name_index = read_2_bytes!(c);
+                        let signature_index = read_2_bytes!(c);
+                        let index = read_2_bytes!(c);
+                        local_variable_type_table.push(LocalVariableTypeTableRecord {
+                            start_pc,
+                            length,
+                            name_index,
+                            signature_index,
+                            index,
+                        });
+                    }
+                    return Ok(Attribute::LocalVariableTypeTable {
+                        attribute_name_index: attribute_info.attribute_name_index,
+                        attribute_length: attribute_info.attribute_length,
+                        local_variable_type_table_length,
+                        local_variable_type_table,
                     });
                 }
                 _ => {
