@@ -160,6 +160,25 @@ pub mod attributes {
         },
     }
 
+    impl Attribute {
+        pub fn name_index(&self) -> u16 {
+            match self {
+                Attribute::ConstantVale { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::Code { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::LineNumberTabel { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::LocalVariableTable { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::LocalVariableTypeTable { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::StackMapTable { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::RuntimeVisibleAnnotations { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::RuntimeInvisibleAnnotations { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::Exceptions { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::Deprecated { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::Signature { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::MethodParameters { attribute_name_index, .. } => *attribute_name_index,
+            }
+        }
+    }
+
     impl fmt::Display for Attribute {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
@@ -208,7 +227,7 @@ pub mod attributes {
                         writeln!(f, " attributes_count={}", attributes.len())?;
                         writeln!(f, "      Attributes:")?;
                         for (i, a) in attributes.iter().enumerate() {
-                            writeln!(f, "        #{}: {}", i + 1, a)?;
+                            writeln!(f, "        #{} (name_index={}): {}", i + 1, a.name_index(), a)?;
                         }
                     }
                     Ok(())

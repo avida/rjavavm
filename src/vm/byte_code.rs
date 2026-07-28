@@ -36,63 +36,73 @@ pub mod byte_code {
     }
 
     pub struct Op<'a> {
+        pub index: usize,
         pub instruction: Instruction,
         pub args: &'a [u8],
+    }
+
+    pub fn parse_op_at<'a>(bytes: &'a [u8], offset: usize) -> Result<(Op<'a>, usize), RunTimeError> {
+        if offset >= bytes.len() {
+            return Err(RunTimeError::Other("offset out of range".to_string()));
+        }
+        let op = bytes[offset];
+        let index = offset;
+        let mut i = offset + 1;
+
+        let (instruction, arg_len) = match op {
+            0x11 => (Instruction::Sipush, 2),
+            0x60 => (Instruction::Iadd, 0),
+            0x57 => (Instruction::Pop, 0),
+            0x02 => (Instruction::IconstM1, 0),
+            0x03 => (Instruction::Iconst0, 0),
+            0x04 => (Instruction::Iconst1, 0),
+            0x05 => (Instruction::Iconst2, 0),
+            0x06 => (Instruction::Iconst3, 0),
+            0x07 => (Instruction::Iconst4, 0),
+            0x08 => (Instruction::Iconst5, 0),
+            0x12 => (Instruction::Ldc, 1),
+            0x19 => (Instruction::Aload, 1),
+            0x2a => (Instruction::Aload0, 0),
+            0x2b => (Instruction::Aload1, 0),
+            0x2c => (Instruction::Aload2, 0),
+            0x2d => (Instruction::Aload3, 0),
+            0x3a => (Instruction::Astore, 1),
+            0x4b => (Instruction::Astore0, 0),
+            0x4c => (Instruction::Astore1, 0),
+            0x4d => (Instruction::Astore2, 0),
+            0x4e => (Instruction::Astore3, 0),
+            0xb2 => (Instruction::Getstatic, 2),
+            0xb6 => (Instruction::Invokevirtual, 2),
+            0xb3 => (Instruction::Putstatic, 2),
+            0xb7 => (Instruction::Invokespecial, 2),
+            0xb8 => (Instruction::Invokestatic, 2),
+            0xba => (Instruction::Invokedynamic, 4),
+            0xa2 => (Instruction::IfIcmpge, 2),
+            0xb1 => (Instruction::Return, 0),
+            _ => {
+                return Err(RunTimeError::Other(format!("Unknown instruction 0x{:02x}", op)));
+            }
+        };
+
+        if i + arg_len > bytes.len() {
+            return Err(RunTimeError::Other(
+                "Not enough bytes for instruction arguments".to_string(),
+            ));
+        }
+
+        let args = &bytes[i..i + arg_len];
+        i += arg_len;
+
+        Ok((Op { index, instruction, args }, i))
     }
 
     pub fn parse<'a>(bytes: &'a [u8]) -> Result<Vec<Op<'a>>, RunTimeError> {
         let mut result: Vec<Op<'a>> = Vec::new();
         let mut i: usize = 0;
         while i < bytes.len() {
-            let op = bytes[i];
-            i += 1;
-
-            let (instruction, arg_len) = match op {
-                0x11 => (Instruction::Sipush, 2),
-                0x60 => (Instruction::Iadd, 0),
-                0x57 => (Instruction::Pop, 0),
-                0x02 => (Instruction::IconstM1, 0),
-                0x03 => (Instruction::Iconst0, 0),
-                0x04 => (Instruction::Iconst1, 0),
-                0x05 => (Instruction::Iconst2, 0),
-                0x06 => (Instruction::Iconst3, 0),
-                0x07 => (Instruction::Iconst4, 0),
-                0x08 => (Instruction::Iconst5, 0),
-                0x12 => (Instruction::Ldc, 1),
-                0x19 => (Instruction::Aload, 1),
-                0x2a => (Instruction::Aload0, 0),
-                0x2b => (Instruction::Aload1, 0),
-                0x2c => (Instruction::Aload2, 0),
-                0x2d => (Instruction::Aload3, 0),
-                0x3a => (Instruction::Astore, 1),
-                0x4b => (Instruction::Astore0, 0),
-                0x4c => (Instruction::Astore1, 0),
-                0x4d => (Instruction::Astore2, 0),
-                0x4e => (Instruction::Astore3, 0),
-                0xb2 => (Instruction::Getstatic, 2),
-                0xb6 => (Instruction::Invokevirtual, 2),
-                0xb3 => (Instruction::Putstatic, 2),
-                0xb7 => (Instruction::Invokespecial, 2),
-                0xb8 => (Instruction::Invokestatic, 2),
-                0xba => (Instruction::Invokedynamic, 4),
-                0xa2 => (Instruction::IfIcmpge, 2),
-                0xb1 => (Instruction::Return, 0),
-                _ => {
-                    // Unknown/unsupported opcode: return error
-                    break;
-                    // return Err(RunTimeError::UnknownInstruction(op));
-                }
-            };
-
-            if i + arg_len > bytes.len() {
-                // Not enough bytes remaining for args
-                return Err(RunTimeError::Other("Not enough bytes for instruction arguments".to_string()));
-            }
-
-            let args = &bytes[i..i + arg_len];
-            i += arg_len;
-
-            result.push(Op { instruction, args });
+            let (op, next_i) = parse_op_at(bytes, i)?;
+            result.push(op);
+            i = next_i;
         }
 
         Ok(result)
@@ -136,7 +146,7 @@ pub mod byte_code {
 
     impl<'a> fmt::Display for Op<'a> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", self.instruction)?;
+            write!(f, "{}: {}",self.index,  self.instruction)?;
             if !self.args.is_empty() {
                 write!(f, " ")?;
                 for (i, b) in self.args.iter().enumerate() {
