@@ -11,7 +11,9 @@ pub mod errors {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 RunTimeError::Other(message) => write!(f, "{}", message),
-                RunTimeError::UnknownInstruction(op) => write!(f, "Unknown instruction: 0x{:02x}", op),
+                RunTimeError::UnknownInstruction(op) => {
+                    write!(f, "Unknown instruction: 0x{:02x}", op)
+                }
             }
         }
     }

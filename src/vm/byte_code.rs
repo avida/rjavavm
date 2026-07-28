@@ -1,6 +1,6 @@
 pub mod byte_code {
-    use std::fmt;
     use crate::vm::errors::errors::RunTimeError;
+    use std::fmt;
 
     #[repr(u8)]
     pub enum Instruction {
@@ -41,7 +41,10 @@ pub mod byte_code {
         pub args: &'a [u8],
     }
 
-    pub fn parse_op_at<'a>(bytes: &'a [u8], offset: usize) -> Result<(Op<'a>, usize), RunTimeError> {
+    pub fn parse_op_at<'a>(
+        bytes: &'a [u8],
+        offset: usize,
+    ) -> Result<(Op<'a>, usize), RunTimeError> {
         if offset >= bytes.len() {
             return Err(RunTimeError::Other("offset out of range".to_string()));
         }
@@ -79,7 +82,10 @@ pub mod byte_code {
             0xa2 => (Instruction::IfIcmpge, 2),
             0xb1 => (Instruction::Return, 0),
             _ => {
-                return Err(RunTimeError::Other(format!("Unknown instruction 0x{:02x}", op)));
+                return Err(RunTimeError::Other(format!(
+                    "Unknown instruction 0x{:02x}",
+                    op
+                )));
             }
         };
 
@@ -92,7 +98,14 @@ pub mod byte_code {
 
         let args = &bytes[arg_offset..arg_offset + arg_len];
 
-        Ok((Op { index, instruction, args }, arg_len))
+        Ok((
+            Op {
+                index,
+                instruction,
+                args,
+            },
+            arg_len,
+        ))
     }
 
     pub fn parse<'a>(bytes: &'a [u8]) -> Result<Vec<Op<'a>>, RunTimeError> {
@@ -145,7 +158,7 @@ pub mod byte_code {
 
     impl<'a> fmt::Display for Op<'a> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}: {}",self.index,  self.instruction)?;
+            write!(f, "{}: {}", self.index, self.instruction)?;
             if !self.args.is_empty() {
                 write!(f, " ")?;
                 for (i, b) in self.args.iter().enumerate() {

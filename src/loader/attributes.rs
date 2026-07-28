@@ -163,18 +163,54 @@ pub mod attributes {
     impl Attribute {
         pub fn name_index(&self) -> u16 {
             match self {
-                Attribute::ConstantVale { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::Code { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::LineNumberTabel { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::LocalVariableTable { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::LocalVariableTypeTable { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::StackMapTable { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::RuntimeVisibleAnnotations { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::RuntimeInvisibleAnnotations { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::Exceptions { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::Deprecated { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::Signature { attribute_name_index, .. } => *attribute_name_index,
-                Attribute::MethodParameters { attribute_name_index, .. } => *attribute_name_index,
+                Attribute::ConstantVale {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::Code {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::LineNumberTabel {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::LocalVariableTable {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::LocalVariableTypeTable {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::StackMapTable {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::RuntimeVisibleAnnotations {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::RuntimeInvisibleAnnotations {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::Exceptions {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::Deprecated {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::Signature {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
+                Attribute::MethodParameters {
+                    attribute_name_index,
+                    ..
+                } => *attribute_name_index,
             }
         }
     }
@@ -227,7 +263,13 @@ pub mod attributes {
                         writeln!(f, " attributes_count={}", attributes.len())?;
                         writeln!(f, "      Attributes:")?;
                         for (i, a) in attributes.iter().enumerate() {
-                            writeln!(f, "        #{} (name_index={}): {}", i + 1, a.name_index(), a)?;
+                            writeln!(
+                                f,
+                                "        #{} (name_index={}): {}",
+                                i + 1,
+                                a.name_index(),
+                                a
+                            )?;
                         }
                     }
                     Ok(())
@@ -389,18 +431,48 @@ pub mod attributes {
                     }
                     Ok(())
                 }
-                Attribute::Deprecated { attribute_name_index, attribute_length } => {
-                    write!(f, "Deprecated(name_index={}, length={})", attribute_name_index, attribute_length)
+                Attribute::Deprecated {
+                    attribute_name_index,
+                    attribute_length,
+                } => {
+                    write!(
+                        f,
+                        "Deprecated(name_index={}, length={})",
+                        attribute_name_index, attribute_length
+                    )
                 }
-                Attribute::Signature { attribute_name_index, attribute_length, signature_index } => {
-                    write!(f, "Signature(name_index={}, length={}, signature_index={})", attribute_name_index, attribute_length, signature_index)
+                Attribute::Signature {
+                    attribute_name_index,
+                    attribute_length,
+                    signature_index,
+                } => {
+                    write!(
+                        f,
+                        "Signature(name_index={}, length={}, signature_index={})",
+                        attribute_name_index, attribute_length, signature_index
+                    )
                 }
-                Attribute::MethodParameters { attribute_name_index, attribute_length, parameters_count, parameters } => {
-                    write!(f, "MethodParameters(name_index={}, length={}, count={})", attribute_name_index, attribute_length, parameters_count)?;
+                Attribute::MethodParameters {
+                    attribute_name_index,
+                    attribute_length,
+                    parameters_count,
+                    parameters,
+                } => {
+                    write!(
+                        f,
+                        "MethodParameters(name_index={}, length={}, count={})",
+                        attribute_name_index, attribute_length, parameters_count
+                    )?;
                     if !parameters.is_empty() {
                         writeln!(f)?;
                         for (i, p) in parameters.iter().enumerate() {
-                            writeln!(f, "        #{}: name_index={}, access_flags=0x{:04x}", i+1, p.name_index, p.access_flags)?;
+                            writeln!(
+                                f,
+                                "        #{}: name_index={}, access_flags=0x{:04x}",
+                                i + 1,
+                                p.name_index,
+                                p.access_flags
+                            )?;
                         }
                     }
                     Ok(())
@@ -659,7 +731,10 @@ pub mod attributes {
                     for _ in 0..parameters_count {
                         let name_index = read_2_bytes!(c);
                         let access_flags = read_2_bytes!(c);
-                        parameters.push(MethodParameter { name_index, access_flags });
+                        parameters.push(MethodParameter {
+                            name_index,
+                            access_flags,
+                        });
                     }
                     return Ok(Attribute::MethodParameters {
                         attribute_name_index: attribute_info.attribute_name_index,
@@ -730,7 +805,8 @@ pub mod attributes {
                 "LocalVariableTypeTable" => {
                     let mut c = std::io::Cursor::new(&attribute_info.info);
                     let local_variable_type_table_length = read_2_bytes!(c);
-                    let mut local_variable_type_table: Vec<LocalVariableTypeTableRecord> = Vec::new();
+                    let mut local_variable_type_table: Vec<LocalVariableTypeTableRecord> =
+                        Vec::new();
                     for _ in 0..local_variable_type_table_length {
                         let start_pc = read_2_bytes!(c);
                         let length = read_2_bytes!(c);

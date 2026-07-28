@@ -178,14 +178,28 @@ pub mod java_class {
                 ConstantPoolPFieldInfo::Float(v) => write!(f, "Float {}", v),
                 ConstantPoolPFieldInfo::Long(v) => write!(f, "Long {}", v),
                 ConstantPoolPFieldInfo::Double(v) => write!(f, "Double {}", v),
-                ConstantPoolPFieldInfo::MethodHandle { reference_kind, reference_index } => {
-                    write!(f, "MethodHandle reference_kind={} reference_index={}", reference_kind, reference_index)
+                ConstantPoolPFieldInfo::MethodHandle {
+                    reference_kind,
+                    reference_index,
+                } => {
+                    write!(
+                        f,
+                        "MethodHandle reference_kind={} reference_index={}",
+                        reference_kind, reference_index
+                    )
                 }
                 ConstantPoolPFieldInfo::MethodType { descriptor_index } => {
                     write!(f, "MethodType descriptor_index={}", descriptor_index)
                 }
-                ConstantPoolPFieldInfo::Dynamic { bootstrap_method_attr_index, name_and_type_index } => {
-                    write!(f, "Dynamic bootstrap_method_attr_index={} name_and_type_index={}", bootstrap_method_attr_index, name_and_type_index)
+                ConstantPoolPFieldInfo::Dynamic {
+                    bootstrap_method_attr_index,
+                    name_and_type_index,
+                } => {
+                    write!(
+                        f,
+                        "Dynamic bootstrap_method_attr_index={} name_and_type_index={}",
+                        bootstrap_method_attr_index, name_and_type_index
+                    )
                 }
                 ConstantPoolPFieldInfo::NameAndType {
                     name_index,
@@ -199,10 +213,10 @@ pub mod java_class {
                 }
                 ConstantPoolPFieldInfo::String { string_index } => {
                     write!(f, "String string_index={}", string_index)
-                },
+                }
                 ConstantPoolPFieldInfo::Integer(i) => {
                     write!(f, "Integer {}", i)
-                },
+                }
                 ConstantPoolPFieldInfo::InvokeDynamic {
                     bootstrap_method_attr_index,
                     name_and_type_index,
@@ -212,15 +226,13 @@ pub mod java_class {
                         "InvokeDynamic bootstrap_method_attr_index={} name_and_type_index={}",
                         bootstrap_method_attr_index, name_and_type_index
                     )
-                },
+                }
                 ConstantPoolPFieldInfo::Module { name_index } => {
                     write!(f, "Module name_index={}", name_index)
-                },
+                }
                 ConstantPoolPFieldInfo::Package { name_index } => {
                     write!(f, "Package name_index={}", name_index)
-                },
-                
-
+                }
                 // _ => write!(f, "Unimplemented"),
             }
         }

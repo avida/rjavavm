@@ -25,5 +25,4 @@ pub mod errors {
     pub fn map_error(e: std::io::Error) -> ClassLoadError {
         ClassLoadError::InvalidFormat(format!("Error: {}", e))
     }
-
 }

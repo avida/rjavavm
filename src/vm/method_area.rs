@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use crate::vm::class::ClassPtr;
-
+use std::collections::HashMap;
 
 pub struct MethodArea {
     pub class_constant_pool_map: HashMap<String, ClassPtr>,
@@ -38,7 +37,6 @@ impl MethodArea {
     pub fn len(&self) -> usize {
         self.class_constant_pool_map.len()
     }
-
 }
 
 impl Default for MethodArea {

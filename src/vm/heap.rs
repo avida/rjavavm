@@ -1,2 +1,1 @@
-mod heap {
-}
+mod heap {}

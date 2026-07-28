@@ -23,7 +23,8 @@ pub mod thread {
             let method = current_frame.borrow_mut().method.clone();
             let pc = self.stack.get_pc();
             loop {
-                let (next_op, args_len ) = byte_code::parse_op_at(&method.code, self.stack.get_pc())?;
+                let (next_op, args_len) =
+                    byte_code::parse_op_at(&method.code, self.stack.get_pc())?;
                 println!("Next op is {}, next_offset {}", next_op, next_op.args.len());
                 self.stack.increase_pc(args_len + 1);
             }

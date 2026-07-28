@@ -1,2 +1,1 @@
-mod frame {
-}
+mod frame {}

@@ -157,13 +157,11 @@ pub mod class_loader {
                     .read_i32::<byteorder::BigEndian>()
                     .map_err(map_error)?,
             )),
-            ConstantPoolTag::Float => {
-                Ok(ConstantPoolPFieldInfo::Float(
-                    cursor
-                        .read_f32::<byteorder::BigEndian>()
-                        .map_err(map_error)?,
-                ))
-            }
+            ConstantPoolTag::Float => Ok(ConstantPoolPFieldInfo::Float(
+                cursor
+                    .read_f32::<byteorder::BigEndian>()
+                    .map_err(map_error)?,
+            )),
             ConstantPoolTag::Long => Ok(ConstantPoolPFieldInfo::Long(
                 cursor
                     .read_i64::<byteorder::BigEndian>()
@@ -189,12 +187,12 @@ pub mod class_loader {
                 class_index: read_two_bytes!(),
                 name_and_type_index: read_two_bytes!(),
             })),
-            ConstantPoolTag::InterfaceMethodref => Ok(ConstantPoolPFieldInfo::InterfaceMethodRef(
-                RefFieldInfo {
+            ConstantPoolTag::InterfaceMethodref => {
+                Ok(ConstantPoolPFieldInfo::InterfaceMethodRef(RefFieldInfo {
                     class_index: read_two_bytes!(),
                     name_and_type_index: read_two_bytes!(),
-                },
-            )),
+                }))
+            }
             ConstantPoolTag::NameAndType => Ok(ConstantPoolPFieldInfo::NameAndType {
                 name_index: read_two_bytes!(),
                 descriptor_index: read_two_bytes!(),
@@ -252,7 +250,10 @@ pub mod class_loader {
             if tag == ConstantPoolTag::Long || tag == ConstantPoolTag::Double {
                 constant_pool.push(ConstantPoolInfo {
                     tag: ConstantPoolTag::Utf8,
-                    info: ConstantPoolPFieldInfo::Utf8Info { length: 0, bytes: vec![] },
+                    info: ConstantPoolPFieldInfo::Utf8Info {
+                        length: 0,
+                        bytes: vec![],
+                    },
                 });
                 idx += 2;
             } else {
