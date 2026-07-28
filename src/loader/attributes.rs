@@ -129,6 +129,21 @@ pub mod attributes {
             number_of_exceptions: u16,
             exception_index_table: Vec<u16>,
         },
+        Deprecated {
+            attribute_name_index: u16,
+            attribute_length: u32,
+        },
+        Signature {
+            attribute_name_index: u16,
+            attribute_length: u32,
+            signature_index: u16,
+        },
+        MethodParameters {
+            attribute_name_index: u16,
+            attribute_length: u32,
+            parameters_count: u8,
+            parameters: Vec<MethodParameter>,
+        },
     }
 
     impl fmt::Display for Attribute {
@@ -313,6 +328,22 @@ pub mod attributes {
                     }
                     Ok(())
                 }
+                Attribute::Deprecated { attribute_name_index, attribute_length } => {
+                    write!(f, "Deprecated(name_index={}, length={})", attribute_name_index, attribute_length)
+                }
+                Attribute::Signature { attribute_name_index, attribute_length, signature_index } => {
+                    write!(f, "Signature(name_index={}, length={}, signature_index={})", attribute_name_index, attribute_length, signature_index)
+                }
+                Attribute::MethodParameters { attribute_name_index, attribute_length, parameters_count, parameters } => {
+                    write!(f, "MethodParameters(name_index={}, length={}, count={})", attribute_name_index, attribute_length, parameters_count)?;
+                    if !parameters.is_empty() {
+                        writeln!(f)?;
+                        for (i, p) in parameters.iter().enumerate() {
+                            writeln!(f, "        #{}: name_index={}, access_flags=0x{:04x}", i+1, p.name_index, p.access_flags)?;
+                        }
+                    }
+                    Ok(())
+                }
             }
         }
     }
@@ -342,6 +373,12 @@ pub mod attributes {
         pub type_index: u16,
         pub num_element_value_pairs: u16,
         pub elements: Vec<(u16, ElementValue)>,
+    }
+
+    #[derive(Debug)]
+    pub struct MethodParameter {
+        pub name_index: u16,
+        pub access_flags: u16,
     }
 
     impl fmt::Display for Annotation {
@@ -536,6 +573,38 @@ pub mod attributes {
                         attribute_length: attribute_info.attribute_length,
                         number_of_exceptions,
                         exception_index_table,
+                    });
+                }
+                "Deprecated" => {
+                    // Deprecated has no info; length should be 0
+                    return Ok(Attribute::Deprecated {
+                        attribute_name_index: attribute_info.attribute_name_index,
+                        attribute_length: attribute_info.attribute_length,
+                    });
+                }
+                "Signature" => {
+                    let mut c = std::io::Cursor::new(&attribute_info.info);
+                    let signature_index = read_2_bytes!(c);
+                    return Ok(Attribute::Signature {
+                        attribute_name_index: attribute_info.attribute_name_index,
+                        attribute_length: attribute_info.attribute_length,
+                        signature_index,
+                    });
+                }
+                "MethodParameters" => {
+                    let mut c = std::io::Cursor::new(&attribute_info.info);
+                    let parameters_count = c.read_u8().map_err(map_error)?;
+                    let mut parameters: Vec<MethodParameter> = Vec::new();
+                    for _ in 0..parameters_count {
+                        let name_index = read_2_bytes!(c);
+                        let access_flags = read_2_bytes!(c);
+                        parameters.push(MethodParameter { name_index, access_flags });
+                    }
+                    return Ok(Attribute::MethodParameters {
+                        attribute_name_index: attribute_info.attribute_name_index,
+                        attribute_length: attribute_info.attribute_length,
+                        parameters_count,
+                        parameters,
                     });
                 }
                 "RuntimeVisibleAnnotations" | "RuntimeInvisibleAnnotations" => {
