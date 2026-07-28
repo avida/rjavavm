@@ -158,12 +158,22 @@ pub mod class_loader {
                     .map_err(map_error)?,
             )),
             ConstantPoolTag::Float => {
-                Err(ClassLoadError::Other("unimplemented: Float".to_string()))
+                Ok(ConstantPoolPFieldInfo::Float(
+                    cursor
+                        .read_f32::<byteorder::BigEndian>()
+                        .map_err(map_error)?,
+                ))
             }
-            ConstantPoolTag::Long => Err(ClassLoadError::Other("unimplemented: Long".to_string())),
-            ConstantPoolTag::Double => {
-                Err(ClassLoadError::Other("unimplemented: Double".to_string()))
-            }
+            ConstantPoolTag::Long => Ok(ConstantPoolPFieldInfo::Long(
+                cursor
+                    .read_i64::<byteorder::BigEndian>()
+                    .map_err(map_error)?,
+            )),
+            ConstantPoolTag::Double => Ok(ConstantPoolPFieldInfo::Double(
+                cursor
+                    .read_f64::<byteorder::BigEndian>()
+                    .map_err(map_error)?,
+            )),
             ConstantPoolTag::Class => Ok(ConstantPoolPFieldInfo::ClassInfo {
                 // name_index: cursor.read_u16::<byteorder::BigEndian>().unwrap(),
                 name_index: read_two_bytes!(),
@@ -179,8 +189,11 @@ pub mod class_loader {
                 class_index: read_two_bytes!(),
                 name_and_type_index: read_two_bytes!(),
             })),
-            ConstantPoolTag::InterfaceMethodref => Err(ClassLoadError::Other(
-                "unimplemented: InterfaceMethodref".to_string(),
+            ConstantPoolTag::InterfaceMethodref => Ok(ConstantPoolPFieldInfo::InterfaceMethodRef(
+                RefFieldInfo {
+                    class_index: read_two_bytes!(),
+                    name_and_type_index: read_two_bytes!(),
+                },
             )),
             ConstantPoolTag::NameAndType => Ok(ConstantPoolPFieldInfo::NameAndType {
                 name_index: read_two_bytes!(),
@@ -190,22 +203,23 @@ pub mod class_loader {
                 reference_kind: cursor.read_u8().map_err(map_error)?,
                 reference_index: read_two_bytes!(),
             }),
-            ConstantPoolTag::MethodType => Err(ClassLoadError::Other(
-                "unimplemented: MethodType".to_string(),
-            )),
-            ConstantPoolTag::Dynamic => {
-                Err(ClassLoadError::Other("unimplemented: Dynamic".to_string()))
-            }
+            ConstantPoolTag::MethodType => Ok(ConstantPoolPFieldInfo::MethodType {
+                descriptor_index: read_two_bytes!(),
+            }),
+            ConstantPoolTag::Dynamic => Ok(ConstantPoolPFieldInfo::Dynamic {
+                bootstrap_method_attr_index: read_two_bytes!(),
+                name_and_type_index: read_two_bytes!(),
+            }),
             ConstantPoolTag::InvokeDynamic => Ok(ConstantPoolPFieldInfo::InvokeDynamic {
                 bootstrap_method_attr_index: read_two_bytes!(),
                 name_and_type_index: read_two_bytes!(),
             }),
-            ConstantPoolTag::Module => {
-                Err(ClassLoadError::Other("unimplemented: Module".to_string()))
-            }
-            ConstantPoolTag::Package => {
-                Err(ClassLoadError::Other("unimplemented: Package".to_string()))
-            }
+            ConstantPoolTag::Module => Ok(ConstantPoolPFieldInfo::Module {
+                name_index: read_two_bytes!(),
+            }),
+            ConstantPoolTag::Package => Ok(ConstantPoolPFieldInfo::Package {
+                name_index: read_two_bytes!(),
+            }),
         }
     }
 
@@ -216,7 +230,8 @@ pub mod class_loader {
         let mut constant_pool: Vec<ConstantPoolInfo> = Vec::new();
 
         let mut next_tag: u8 = 0;
-        for _ in 0..count - 1 {
+        let mut idx: u16 = 1;
+        while idx < count {
             cursor
                 .read_exact(std::slice::from_mut(&mut next_tag))
                 .map_err(|e| {
@@ -227,7 +242,22 @@ pub mod class_loader {
                 })?;
             let tag = ConstantPoolTag::try_from(next_tag).unwrap();
             let info = parse_constant_pool_info(cursor, tag)?;
+            println!("{} of {count} {tag} {next_tag} {info}", idx);
             constant_pool.push(ConstantPoolInfo { tag, info });
+
+            // Long and Double take up two entries in the constant pool table.
+            // When encountered, the next index is unusable and must be skipped
+            // (occupied by a phantom entry). Insert a placeholder so indices
+            // in `constant_pool` remain aligned with class-file constant pool indices.
+            if tag == ConstantPoolTag::Long || tag == ConstantPoolTag::Double {
+                constant_pool.push(ConstantPoolInfo {
+                    tag: ConstantPoolTag::Utf8,
+                    info: ConstantPoolPFieldInfo::Utf8Info { length: 0, bytes: vec![] },
+                });
+                idx += 2;
+            } else {
+                idx += 1;
+            }
         }
         Ok(Rc::new(constant_pool))
     }

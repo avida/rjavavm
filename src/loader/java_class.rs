@@ -117,13 +117,22 @@ pub mod java_class {
             name_index: u16,
             descriptor_index: u16,
         },
-
         MethodRef(RefFieldInfo),
         InterfaceMethodRef(RefFieldInfo),
         FieldRef(RefFieldInfo),
+        Float(f32),
+        Long(i64),
+        Double(f64),
         MethodHandle {
             reference_kind: u8,
             reference_index: u16,
+        },
+        MethodType {
+            descriptor_index: u16,
+        },
+        Dynamic {
+            bootstrap_method_attr_index: u16,
+            name_and_type_index: u16,
         },
         String {
             string_index: u16,
@@ -131,6 +140,12 @@ pub mod java_class {
         InvokeDynamic {
             bootstrap_method_attr_index: u16,
             name_and_type_index: u16,
+        },
+        Module {
+            name_index: u16,
+        },
+        Package {
+            name_index: u16,
         },
         Integer(i32),
     }
@@ -160,8 +175,17 @@ pub mod java_class {
                     write!(f, "InterfaceMethodRef {}", r)
                 }
                 ConstantPoolPFieldInfo::FieldRef(r) => write!(f, "FieldRef {}", r),
+                ConstantPoolPFieldInfo::Float(v) => write!(f, "Float {}", v),
+                ConstantPoolPFieldInfo::Long(v) => write!(f, "Long {}", v),
+                ConstantPoolPFieldInfo::Double(v) => write!(f, "Double {}", v),
                 ConstantPoolPFieldInfo::MethodHandle { reference_kind, reference_index } => {
                     write!(f, "MethodHandle reference_kind={} reference_index={}", reference_kind, reference_index)
+                }
+                ConstantPoolPFieldInfo::MethodType { descriptor_index } => {
+                    write!(f, "MethodType descriptor_index={}", descriptor_index)
+                }
+                ConstantPoolPFieldInfo::Dynamic { bootstrap_method_attr_index, name_and_type_index } => {
+                    write!(f, "Dynamic bootstrap_method_attr_index={} name_and_type_index={}", bootstrap_method_attr_index, name_and_type_index)
                 }
                 ConstantPoolPFieldInfo::NameAndType {
                     name_index,
@@ -188,6 +212,12 @@ pub mod java_class {
                         "InvokeDynamic bootstrap_method_attr_index={} name_and_type_index={}",
                         bootstrap_method_attr_index, name_and_type_index
                     )
+                },
+                ConstantPoolPFieldInfo::Module { name_index } => {
+                    write!(f, "Module name_index={}", name_index)
+                },
+                ConstantPoolPFieldInfo::Package { name_index } => {
+                    write!(f, "Package name_index={}", name_index)
                 },
                 
 
@@ -317,6 +347,55 @@ pub mod java_class {
             }
 
             Ok(())
+        }
+    }
+
+    impl JavaClass {
+        pub fn cp_get(&self, index: u16) -> Option<&ConstantPoolInfo> {
+            if index == 0 {
+                return None;
+            }
+            let idx = index as usize;
+            if idx == 0 || idx > self.constant_pool.len() {
+                return None;
+            }
+            Some(&self.constant_pool[idx - 1])
+        }
+
+        pub fn get_utf8(&self, index: u16) -> Option<String> {
+            match &self.cp_get(index)?.info {
+                ConstantPoolPFieldInfo::Utf8Info { bytes, .. } => {
+                    Some(String::from_utf8_lossy(bytes).into_owned())
+                }
+                _ => None,
+            }
+        }
+
+        pub fn get_class_name(&self, index: u16) -> Option<String> {
+            match &self.cp_get(index)?.info {
+                ConstantPoolPFieldInfo::ClassInfo { name_index } => self.get_utf8(*name_index),
+                _ => None,
+            }
+        }
+
+        pub fn get_name_and_type(&self, index: u16) -> Option<(String, String)> {
+            match &self.cp_get(index)?.info {
+                ConstantPoolPFieldInfo::NameAndType {
+                    name_index,
+                    descriptor_index,
+                } => {
+                    let name = self.get_utf8(*name_index)?;
+                    let desc = self.get_utf8(*descriptor_index)?;
+                    Some((name, desc))
+                }
+                _ => None,
+            }
+        }
+
+        pub fn resolve_ref(&self, r: &RefFieldInfo) -> Option<(String, String, String)> {
+            let class_name = self.get_class_name(r.class_index)?;
+            let (name, desc) = self.get_name_and_type(r.name_and_type_index)?;
+            Some((class_name, name, desc))
         }
     }
 }

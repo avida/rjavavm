@@ -4,8 +4,8 @@ mod loader;
 mod utils;
 mod vm;
 
-use crate::{loader::class_loader::class_loader::load, vm::errors::errors::RunTimeError};
 use crate::loader::utils::utils::lookup_class_file;
+use crate::{loader::class_loader::class_loader::load, vm::errors::errors::RunTimeError};
 use clap::{CommandFactory, Parser};
 
 #[derive(Parser)]
@@ -33,22 +33,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         } else {
+            eprintln!("Cannot find class  {}", path.to_str().unwrap());
         }
     } else if let Some(class_name) = cli.run {
         // Find class file and load/init runtime
         match lookup_class_file(&class_name) {
             Some(path) => match crate::vm::runtime::Runtime::load_and_init(&path) {
-                Some(mut runtime) => {
-                    match runtime.run(&class_name) {
-                        Ok(()) => {
-                            println!("Execution finished successfully");
-                        }
-                        Err(e) => {
-                            eprintln!("Runtime error: {}", e);
-                            std::process::exit(1);
-                        }
+                Some(mut runtime) => match runtime.run(&class_name) {
+                    Ok(()) => {
+                        println!("Execution finished successfully");
                     }
-                }
+                    Err(e) => {
+                        eprintln!("Runtime error: {}", e);
+                        std::process::exit(1);
+                    }
+                },
                 None => {
                     eprintln!("Failed to load class file at {}", path);
                     std::process::exit(1);

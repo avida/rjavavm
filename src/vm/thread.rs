@@ -18,8 +18,6 @@ pub mod thread {
             let class = current_frame.borrow_mut().class.clone();
             let method = current_frame.borrow_mut().method.clone();
             let code_parsed  = byte_code::parse(&method.code)?;
-            println!("len is {}", method.code.len());
-            println!("len is {}", code_parsed.len());
             for c in code_parsed {
                 println!("{}", c);
             }
