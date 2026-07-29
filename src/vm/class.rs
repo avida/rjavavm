@@ -88,6 +88,7 @@ impl Class {
                 max_locals,
                 code,
             });
+            println!("insert {}", m.name_index);
             method_by_index.insert(m.name_index, method.clone());
 
             methods.push(method);

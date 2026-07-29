@@ -1,8 +1,9 @@
 pub mod thread {
-    use std::ops::RemAssign;
+    use std::ops::{Index, RemAssign};
     use std::rc::Rc;
 
     use crate::bytes_to_short;
+    use crate::loader::java_class::java_class::{ConstantPoolInfo, ConstantPoolTag};
     use crate::vm::byte_code::byte_code::{self, Instruction};
 
     use crate::vm::stack::stack::StackFramePtr;
@@ -60,6 +61,23 @@ pub mod thread {
                 Instruction::Invokestatic => {
                     let param = bytes_to_short!(op.args);
                     println!("Executing {op}, {param}");
+                    let frame_ref = self.current_frame.as_ref().unwrap().borrow();
+                    let const_pool = &&frame_ref.class.constant_pool;
+                    let index = param as usize;
+
+                    match const_pool.as_ref()[index - 1].tag {
+                        ConstantPoolTag::Methodref => {
+                            let class = frame_ref.class.as_ref();
+                            if let Some(method) = class.get_method_by_index(index as u16) {
+
+                            } else {
+                            println!("Method  at {index} not resolved");
+                            }
+
+                            println!("Tag found");
+                        }
+                        _ => return Err(RunTimeError::Other("Unexpected tag".to_string())),
+                    }
                 }
                 Instruction::Invokedynamic => {
                     let param = bytes_to_short!(op.args);
