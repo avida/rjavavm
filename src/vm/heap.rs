@@ -1,1 +1,3 @@
-mod heap {}
+pub mod heap {
+    struct Heap {}
+}

@@ -2,7 +2,25 @@ pub mod byte_code {
     use crate::vm::errors::errors::RunTimeError;
     use std::fmt;
 
+    // Macro to convert a two-byte slice (big-endian) into an `i16` (short).
+    // Usage: `bytes_to_short!(slice)` where `slice` is a `&[u8]` with length >= 2.
+    #[macro_export]
+    macro_rules! bytes_to_short {
+        ($b:expr) => {{
+            let arr: &[u8] = $b;
+            ((arr[0] as u16) << 8 | (arr[1] as u16)) as i16
+        }};
+    }
+
+    impl std::ops::Sub for Instruction {
+        type Output = isize;
+        fn sub(self, rhs: Instruction) -> Self::Output {
+            (self as u8 as isize) - (rhs as u8 as isize)
+        }
+    }
+
     #[repr(u8)]
+    #[derive(Copy, Clone)]
     pub enum Instruction {
         Sipush = 0x11,
         Ldc = 0x12,
@@ -19,6 +37,7 @@ pub mod byte_code {
         Iconst4 = 0x07,
         Iconst5 = 0x08,
         Iadd = 0x60,
+        Isub = 0x64,
         Pop = 0x57,
         Astore = 0x3a,
         Astore0 = 0x4b,
@@ -54,6 +73,7 @@ pub mod byte_code {
         let (instruction, arg_len) = match op {
             0x11 => (Instruction::Sipush, 2),
             0x60 => (Instruction::Iadd, 0),
+            0x64 => (Instruction::Isub, 0),
             0x57 => (Instruction::Pop, 0),
             0x02 => (Instruction::IconstM1, 0),
             0x03 => (Instruction::Iconst0, 0),
@@ -125,6 +145,7 @@ pub mod byte_code {
             match self {
                 Instruction::Sipush => write!(f, "sipush"),
                 Instruction::Iadd => write!(f, "iadd"),
+                Instruction::Isub => write!(f, "isub"),
                 Instruction::Pop => write!(f, "pop"),
                 Instruction::IconstM1 => write!(f, "iconst_m1"),
                 Instruction::Iconst0 => write!(f, "iconst_0"),

@@ -1,5 +1,6 @@
 pub mod operand_stack {
     use crate::vm::types::types::*;
+    use std::fmt;
     pub struct OperandStack {
         stack: Vec<VarSlot>,
     }
@@ -16,6 +17,23 @@ pub mod operand_stack {
         pub fn pop<P: Popable>(&mut self) -> Option<P> {
             P::pop_from(&mut self.stack)
         }
+        pub fn len(&self) -> usize {
+            self.stack.len()
+        }
+    }
+
+    impl fmt::Display for OperandStack {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "OperandStack(len={}) [", self.stack.len())?;
+            for (i, slot) in self.stack.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                let v = u32::from_be_bytes(*slot);
+                write!(f, "0x{:08x}", v)?;
+            }
+            write!(f, "]")
+        }
     }
 
     pub trait StackValue {
@@ -29,6 +47,14 @@ pub mod operand_stack {
     }
 
     impl StackValue for i8 {
+        fn to_slots(self) -> Vec<VarSlot> {
+            // sign-extend to 32-bit and store as one slot
+            let v = (self as i32).to_be_bytes();
+            vec![v]
+        }
+    }
+
+    impl StackValue for i16 {
         fn to_slots(self) -> Vec<VarSlot> {
             // sign-extend to 32-bit and store as one slot
             let v = (self as i32).to_be_bytes();
@@ -70,6 +96,12 @@ pub mod operand_stack {
     impl Popable for i8 {
         fn pop_from(stack: &mut Vec<VarSlot>) -> Option<Self> {
             stack.pop().map(|b| i32::from_be_bytes(b) as i8)
+        }
+    }
+
+    impl Popable for i16 {
+        fn pop_from(stack: &mut Vec<VarSlot>) -> Option<Self> {
+            stack.pop().map(|b| i32::from_be_bytes(b) as i16)
         }
     }
 

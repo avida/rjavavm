@@ -10,7 +10,7 @@ pub mod stack {
     pub struct StackFrame {
         pub class: ClassPtr,
         pub method: Rc<Method>,
-        operand_stack: OperandStack,
+        pub operand_stack: OperandStack,
         local_variables: Vec<VarSlot>,
     }
     pub type StackFramePtr = Rc<RefCell<StackFrame>>;
