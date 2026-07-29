@@ -1,20 +1,22 @@
-use crate::vm::class::ClassPtr;
+use crate::vm::class::{ClassPtr, MethodReference};
 use std::collections::HashMap;
+use std::rc::Rc;
 
+pub type MethodAreaPtr = Rc<MethodArea>;
 pub struct MethodArea {
     pub class_constant_pool_map: HashMap<String, ClassPtr>,
 }
 
 impl MethodArea {
-    pub fn new() -> Self {
-        MethodArea {
+    pub fn new() -> MethodAreaPtr {
+        Rc::new(MethodArea {
             class_constant_pool_map: HashMap::new(),
-        }
+        })
     }
 
-    pub fn init(class_name: String, pool: ClassPtr) -> Self {
+    pub fn init(class_name: String, pool: ClassPtr) -> MethodAreaPtr {
         let mut ma = MethodArea::new();
-        ma.insert(class_name, pool);
+        Rc::get_mut(&mut ma).unwrap().insert(class_name, pool);
         ma
     }
 
@@ -36,11 +38,5 @@ impl MethodArea {
 
     pub fn len(&self) -> usize {
         self.class_constant_pool_map.len()
-    }
-}
-
-impl Default for MethodArea {
-    fn default() -> Self {
-        MethodArea::new()
     }
 }

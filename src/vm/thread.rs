@@ -6,7 +6,8 @@ pub mod thread {
     use crate::loader::java_class::java_class::{ConstantPoolInfo, ConstantPoolTag};
     use crate::vm::byte_code::byte_code::{self, Instruction};
 
-    use crate::vm::stack::stack::StackFramePtr;
+    use crate::vm::method_area::MethodAreaPtr;
+use crate::vm::stack::stack::StackFramePtr;
     use crate::vm::{
         class::ClassPtr,
         errors::errors::RunTimeError,
@@ -18,6 +19,7 @@ pub mod thread {
         pc: usize,
         stack: Stack,
         current_frame: Option<StackFramePtr>,
+        method_area: MethodAreaPtr,
     }
 
     impl Thread {
@@ -135,11 +137,12 @@ pub mod thread {
             self.stack.push_frame(frame.clone());
             Ok(())
         }
-        pub fn new() -> Self {
+        pub fn new(ma: &MethodAreaPtr) -> Self {
             Self {
                 pc: 0,
                 stack: Stack::new(),
                 current_frame: None,
+                method_area: ma.clone(),
             }
         }
     }

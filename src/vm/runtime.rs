@@ -1,14 +1,14 @@
 use crate::loader::class_loader::class_loader::load;
 use crate::loader::java_class::java_class::{ConstantPoolPFieldInfo, JavaClassPtr};
 use crate::vm::errors::errors::RunTimeError;
-use crate::vm::method_area::MethodArea;
+use crate::vm::method_area::{MethodArea, MethodAreaPtr};
 use crate::vm::thread::thread::Thread;
 use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 pub struct Runtime {
-    method_area: MethodArea,
+    method_area: MethodAreaPtr,
     main_thread: Thread,
 }
 
@@ -35,10 +35,11 @@ impl Runtime {
             })
             .unwrap_or_else(|| "<unknown>".to_string());
 
-        ma.insert(name, class);
+        Rc::get_mut(&mut ma).unwrap().insert(name, class);
+
         Runtime {
-            method_area: ma,
-            main_thread: Thread::new(),
+            method_area: ma.clone(),
+            main_thread: Thread::new(&ma),
         }
     }
 
