@@ -164,7 +164,6 @@ impl Class {
                 max_locals,
                 code,
             });
-            println!("insert {}", m.name_index);
             method_by_index.insert(m.name_index, method.clone());
 
             methods.push(method);
@@ -241,17 +240,17 @@ impl Class {
         (fields, field_by_index)
     }
 
-    pub fn init(class_info: &JavaClass) -> Self {
+    pub fn init(class_info: &JavaClass) -> ClassPtr{
         let (methods, method_by_index) = Class::load_methods(class_info);
         let (fields, field_by_index) = Class::load_fields(class_info);
 
-        Class {
+        Rc::new(Class {
             constant_pool: class_info.constant_pool.clone(),
             methods,
             fields,
             method_by_index,
             field_by_index,
-        }
+        })
     }
 }
 

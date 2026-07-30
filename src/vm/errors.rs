@@ -6,15 +6,17 @@ pub mod errors {
         Other(String),
         UnknownInstruction(u8),
         Notimplemented(String),
+        ClassLoadError(String),
     }
     impl fmt::Display for RunTimeError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 RunTimeError::Other(message) => write!(f, "{}", message),
-                        RunTimeError::UnknownInstruction(op) => {
-                            write!(f, "Unknown instruction: 0x{:02x}", op)
-                        },
-                        RunTimeError::Notimplemented(msg) => write!(f, "Not implemented: {}", msg),
+                RunTimeError::UnknownInstruction(op) => {
+                    write!(f, "Unknown instruction: 0x{:02x}", op)
+                }
+                RunTimeError::Notimplemented(msg) => write!(f, "Not implemented: {}", msg),
+                RunTimeError::ClassLoadError(msg) => write!(f, "Class load error: {}", msg),
             }
         }
     }

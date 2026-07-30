@@ -1,8 +1,9 @@
 use crate::vm::class::{ClassPtr, MethodReference};
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
-pub type MethodAreaPtr = Rc<MethodArea>;
+pub type MethodAreaPtr = Arc<Mutex<MethodArea>>;
 pub struct MethodArea {
     pub class_constant_pool_map: HashMap<String, ClassPtr>,
     pub resolved_methods: HashMap<String, MethodReference>,
@@ -10,10 +11,10 @@ pub struct MethodArea {
 
 impl MethodArea {
     pub fn new() -> MethodAreaPtr {
-        Rc::new(MethodArea {
+        Arc::new(Mutex::new(MethodArea {
             class_constant_pool_map: HashMap::new(),
             resolved_methods: HashMap::new(),
-        })
+        }))
     }
 
     pub fn insert(&mut self, class_name: String, pool: ClassPtr) {

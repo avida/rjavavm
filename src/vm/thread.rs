@@ -7,7 +7,7 @@ pub mod thread {
     use crate::vm::byte_code::byte_code::{self, Instruction};
 
     use crate::vm::method_area::MethodAreaPtr;
-use crate::vm::stack::stack::StackFramePtr;
+    use crate::vm::stack::stack::StackFramePtr;
     use crate::vm::{
         class::ClassPtr,
         errors::errors::RunTimeError,
@@ -71,7 +71,6 @@ use crate::vm::stack::stack::StackFramePtr;
                         ConstantPoolTag::Methodref => {
                             let class = frame_ref.class.as_ref();
                             if let Some(method) = class.get_method_by_index(index) {
-
                             } else {
                                 println!("Method at {index} not resolved");
                                 let r = class.resolve_ref_to_identifier(index);

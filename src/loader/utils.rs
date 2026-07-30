@@ -1,7 +1,7 @@
 pub mod utils {
     use std::env;
     use std::path::{Path, PathBuf};
-    pub fn lookup_class_file(class_name: &str) -> Option<String> {
+    pub fn lookup_class_file(class_name: &str) -> Option<PathBuf> {
         // Normalize class name to path form (dots to slashes)
         let mut class_path = class_name.replace('.', "/");
         if !class_path.ends_with(".class") {
@@ -17,7 +17,7 @@ pub mod utils {
             let mut p = PathBuf::from(entry);
             p.push(&class_path);
             if p.exists() && p.is_file() {
-                return Some(p.to_string_lossy().to_string());
+                return Some(p);
             }
         }
 
@@ -26,7 +26,7 @@ pub mod utils {
         if let Some(mut cwd) = cwd {
             cwd.push(&class_path);
             if cwd.exists() && cwd.is_file() {
-                return Some(cwd.to_string_lossy().to_string());
+                return Some(cwd);
             }
         }
 
@@ -67,7 +67,7 @@ pub mod utils {
             assert!(found.is_some());
             let fp = found.unwrap();
             assert_eq!(
-                fs::canonicalize(fp).unwrap(),
+                fs::canonicalize(&fp).unwrap(),
                 fs::canonicalize(target).unwrap()
             );
 

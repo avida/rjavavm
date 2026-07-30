@@ -5,6 +5,7 @@ mod utils;
 mod vm;
 
 use crate::loader::utils::utils::lookup_class_file;
+use crate::vm::runtime::Runtime;
 use crate::{loader::class_loader::class_loader::load, vm::errors::errors::RunTimeError};
 use clap::{CommandFactory, Parser};
 
@@ -25,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(path) = cli.print {
         if let Some(file_path) = lookup_class_file(path.to_str().unwrap()) {
-            match load(&file_path) {
+            match load(file_path.to_str().unwrap()) {
                 Ok(jc) => println!("{}", jc),
                 Err(e) => {
                     eprintln!("Error loading class: {}", e);
@@ -36,20 +37,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("Cannot find class  {}", path.to_str().unwrap());
         }
     } else if let Some(class_name) = cli.run {
-        // Find class file and load/init runtime
-        match lookup_class_file(&class_name) {
-            Some(path) => match crate::vm::runtime::Runtime::load_and_init(&path) {
-                Some(mut runtime) => match runtime.run(&class_name) {
-                    Ok(()) => {
-                        println!("Execution finished successfully");
-                    }
-                    Err(e) => {
-                        eprintln!("Runtime error: {}", e);
-                        std::process::exit(1);
-                    }
-                },
-                None => {
-                    eprintln!("Failed to load class file at {}", path);
+        // Load/init runtime with a fully-qualified class name; Runtime will
+        // resolve the .class file via `lookup_class_file` internally.
+        match Runtime::load_and_init() {
+            Some(mut runtime) => match runtime.run(&class_name) {
+                Ok(()) => println!("Execution finished successfully"),
+                Err(e) => {
+                    eprintln!("Runtime error: {}", e);
                     std::process::exit(1);
                 }
             },
