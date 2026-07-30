@@ -1,4 +1,8 @@
-use crate::vm::class::{ClassPtr, MethodReference};
+use crate::vm::class::{Class, ClassPtr, MethodReference};
+use crate::loader::class_loader::class_loader::load;
+use crate::loader::java_class::java_class::{ConstantPoolPFieldInfo, JavaClassPtr};
+use crate::loader::utils::utils::lookup_class_file;
+use crate::vm::errors::errors::RunTimeError;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -15,6 +19,84 @@ impl MethodArea {
             class_constant_pool_map: HashMap::new(),
             resolved_methods: HashMap::new(),
         }))
+    }
+
+    pub fn init_class(&mut self, java_class: JavaClassPtr) -> ClassPtr {
+        let class = Class::init(&java_class);
+
+        // try to resolve the class name from constant pool
+        let name = java_class
+            .constant_pool
+            .get((java_class.this_class as usize).saturating_sub(1))
+            .and_then(|entry| match &entry.info {
+                ConstantPoolPFieldInfo::ClassInfo { name_index } => java_class
+                    .constant_pool
+                    .get((*name_index as usize).saturating_sub(1))
+                    .and_then(|e| match &e.info {
+                        ConstantPoolPFieldInfo::Utf8Info { bytes, .. } => {
+                            Some(String::from_utf8_lossy(bytes).to_string())
+                        }
+                        _ => None,
+                    }),
+                _ => None,
+            })
+            .unwrap_or_else(|| "<unknown>".to_string());
+
+        self.insert(name, class.clone());
+        class
+    }
+
+    pub fn load_class(&mut self, class_path: &str) -> Result<ClassPtr, RunTimeError> {
+        if let Some(path) = lookup_class_file(class_path) {
+            load(path.to_str().unwrap())
+                .map(|jc| self.init_class(jc))
+                .map_err(|_| RunTimeError::ClassLoadError(format!(
+                    "Failed to load class file for {} at {}",
+                    class_path,
+                    path.display()
+                )))
+        } else {
+            load(class_path)
+                .map(|jc| self.init_class(jc))
+                .map_err(|_| RunTimeError::ClassLoadError(format!(
+                    "Failed to load class from path {}",
+                    class_path
+                )))
+        }
+    }
+
+    pub fn get_or_load_class(&mut self, class_path: &str) -> Result<ClassPtr, RunTimeError> {
+        if let Some(class) = self.get(class_path) {
+            Ok(class.clone())
+        } else {
+            Ok(self.load_class(class_path)?)
+        }
+    }
+
+    pub fn resolve(&mut self, identifier: &str) -> Result<MethodReference, RunTimeError> {
+        if let Some(r) = self.resolved_methods.get(identifier) {
+            return Ok(r.clone());
+        }
+
+        let pos = identifier.rfind('.').ok_or(RunTimeError::Other(format!(
+            "Invalid method identifier: {}",
+            identifier
+        )))?;
+        let class_name = &identifier[..pos];
+
+        let class_ptr = if let Some(c) = self.class_constant_pool_map.get(class_name) {
+            c.clone()
+        } else {
+            self.load_class(class_name)?
+        };
+
+        self.insert_resolved_for_class(&class_name.to_string(), &class_ptr);
+
+        if let Some(r2) = self.resolved_methods.get(identifier) {
+            Ok(r2.clone())
+        } else {
+            Err(RunTimeError::Other(format!("Method {} not found", identifier)))
+        }
     }
 
     pub fn insert(&mut self, class_name: String, pool: ClassPtr) {

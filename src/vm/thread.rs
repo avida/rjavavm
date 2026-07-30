@@ -42,10 +42,6 @@ pub mod thread {
                 self.stack.increase_pc(args_len + 1);
             }
 
-            // let code_parsed = byte_code::parse(&method.code)?;
-            // for c in code_parsed {
-            //     println!("{}", c);
-            // }
             Ok(())
         }
         pub fn run_op(&self, op: &byte_code::Op) -> Result<(), RunTimeError> {
@@ -70,11 +66,25 @@ pub mod thread {
                     match const_pool.as_ref()[index as usize - 1].tag {
                         ConstantPoolTag::Methodref => {
                             let class = frame_ref.class.as_ref();
-                            if let Some(method) = class.get_method_by_index(index) {
+                            if let Some(_method) = class.get_method_by_index(index) {
+                                // already resolved on class
                             } else {
                                 println!("Method at {index} not resolved");
-                                let r = class.resolve_ref_to_identifier(index);
-                                println!("Resolved: {r:?}");
+                                let identifier = class
+                                    .resolve_ref_to_identifier(index)
+                                    .ok_or(RunTimeError::ResolveMethodError(format!(
+                                        "Failed to resolve constant pool ref {}",
+                                        index
+                                    )))?;
+                                println!("Resolved identifier: {identifier}");
+
+                                let mut ma = self.method_area.lock().unwrap();
+                                match ma.resolve(&identifier) {
+                                    Ok(_method_ref) => {
+                                        println!("Resolved via MethodArea: {}", identifier);
+                                    }
+                                    Err(e) => return Err(e),
+                                }
                             }
 
                             println!("Tag found");
