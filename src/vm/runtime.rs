@@ -1,4 +1,5 @@
-use crate::vm::class::{Class, ClassPtr};
+use crate::vm::class::{Class, ClassPtr, MethodReference};
+use std::rc::Rc;
 use crate::vm::errors::errors::RunTimeError;
 use crate::vm::method_area::{MethodArea, MethodAreaPtr};
 use crate::vm::thread::thread::Thread;
@@ -42,7 +43,8 @@ impl Runtime {
                 "Running `main` of class {} (simulation) at index {}",
                 class_path, index
             );
-            self.main_thread.invoke(class.clone(), *index)?;
+            let method_ref = MethodReference::new(Rc::clone(method), class.clone());
+            self.main_thread.invoke(method_ref)?;
             self.main_thread.run()?;
         } else {
             return Err(RunTimeError::ClassLoadError(format!(

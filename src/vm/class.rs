@@ -28,6 +28,12 @@ impl MethodReference {
     pub fn new(method: MethodPtr, class: ClassPtr) -> Self {
         MethodReference { method, class }
     }
+    pub fn method(&self) -> MethodPtr {
+        self.method.clone()
+    }
+    pub fn class(&self) -> ClassPtr {
+        self.class.clone()
+    }
 }
 #[derive(Debug, Clone)]
 pub struct Field {

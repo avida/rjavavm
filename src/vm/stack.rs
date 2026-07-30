@@ -1,6 +1,6 @@
 pub mod stack {
     use crate::loader::java_class::java_class::ConstantPoolInfoTable;
-    use crate::vm::class::{Class, ClassPtr, Method};
+    use crate::vm::class::{Class, ClassPtr, Method, MethodReference};
     use crate::vm::errors::errors::*;
     use crate::vm::operand_stack::operand_stack::OperandStack;
     use crate::vm::types::types::*;
@@ -17,13 +17,13 @@ pub mod stack {
     pub struct Stack {
         frames: Vec<StackFramePtr>,
         program_counter: usize,
+        return_addresses: Vec<usize>,
     }
     impl StackFrame {
         fn make_local_variables() {}
-        pub fn new(class: ClassPtr, method_index: u16) -> Result<Self, RunTimeError> {
-            let method = class
-                .get_method_by_index(method_index)
-                .ok_or_else(|| RunTimeError::Other("Failed to fetch method".to_string()))?;
+        pub fn new(method_ref: MethodReference) -> Result<Self, RunTimeError> {
+            let method = method_ref.method();
+            let class = method_ref.class();
             let mut local_variables: Vec<VarSlot> = vec![];
             local_variables.resize(method.max_locals as usize, [0, 0, 0, 0]);
             Ok(Self {
@@ -33,8 +33,8 @@ pub mod stack {
                 method: method.clone(),
             })
         }
-        pub fn new_ptr(class: ClassPtr, method_index: u16) -> Result<StackFramePtr, RunTimeError> {
-            let frame = Self::new(class, method_index)?;
+        pub fn new_ptr(method_ref: MethodReference) -> Result<StackFramePtr, RunTimeError> {
+            let frame = Self::new(method_ref)?;
             Ok(Rc::new(RefCell::new(frame)))
         }
         pub fn get_variable_value<T: LocalVariableValue>(
@@ -157,6 +157,7 @@ pub mod stack {
             Self {
                 frames: Vec::new(),
                 program_counter: 0,
+                return_addresses: Vec::new(),
             }
         }
 
@@ -166,6 +167,12 @@ pub mod stack {
 
         pub fn pop_frame(&mut self) -> Option<StackFramePtr> {
             self.frames.pop()
+        }
+        pub fn push_return_address(&mut self, addr: usize) {
+            self.return_addresses.push(addr);
+        }
+        pub fn pop_return_address(&mut self) -> Option<usize> {
+            self.return_addresses.pop()
         }
         pub fn top_frame(&self) -> Option<StackFramePtr> {
             if self.frames.is_empty() {

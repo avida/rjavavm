@@ -13,6 +13,7 @@ pub struct MethodArea {
     pub resolved_methods: HashMap<String, MethodReference>,
 }
 
+
 impl MethodArea {
     pub fn new() -> MethodAreaPtr {
         Arc::new(Mutex::new(MethodArea {
@@ -71,6 +72,50 @@ impl MethodArea {
         } else {
             Ok(self.load_class(class_path)?)
         }
+    }
+
+    pub fn parse_params(desc: &str) -> Vec<String> {
+        let mut res: Vec<String> = Vec::new();
+        if let Some(start) = desc.find('(') {
+            if let Some(end) = desc.find(')') {
+                let mut i = start + 1;
+                let bytes = desc.as_bytes();
+                while i < end {
+                    match bytes[i] as char {
+                        'B' | 'C' | 'D' | 'F' | 'I' | 'J' | 'S' | 'Z' => {
+                            res.push((bytes[i] as char).to_string());
+                            i += 1;
+                        }
+                        'L' => {
+                            let mut j = i + 1;
+                            while j < end && bytes[j] as char != ';' { j += 1; }
+                            let s = &desc[i..=j];
+                            res.push(s.to_string());
+                            i = j + 1;
+                        }
+                        '[' => {
+                            let mut j = i + 1;
+                            while j < end && bytes[j] as char == '[' { j += 1; }
+                            if j < end {
+                                if bytes[j] as char == 'L' {
+                                    let mut k = j + 1;
+                                    while k < end && bytes[k] as char != ';' { k += 1; }
+                                    let s = &desc[i..=k];
+                                    res.push(s.to_string());
+                                    i = k + 1;
+                                } else {
+                                    let s = &desc[i..=j];
+                                    res.push(s.to_string());
+                                    i = j + 1;
+                                }
+                            } else { break; }
+                        }
+                        _ => { i += 1; }
+                    }
+                }
+            }
+        }
+        res
     }
 
     pub fn resolve(&mut self, identifier: &str) -> Result<MethodReference, RunTimeError> {
@@ -134,5 +179,49 @@ impl MethodArea {
 
     pub fn len(&self) -> usize {
         self.class_constant_pool_map.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_empty_params() {
+        assert_eq!(MethodArea::parse_params("()V"), Vec::<String>::new());
+    }
+
+    #[test]
+    fn parse_primitive_and_object() {
+        let v = MethodArea::parse_params("(ILjava/lang/String;)V");
+        assert_eq!(v, vec!["I".to_string(), "Ljava/lang/String;".to_string()]);
+    }
+
+    #[test]
+    fn parse_wide_and_array() {
+        let v = MethodArea::parse_params("(J[D)I");
+        assert_eq!(v, vec!["J".to_string(), "[D".to_string()]);
+    }
+
+    #[test]
+    fn parse_multi_dim_array() {
+        let v = MethodArea::parse_params("([[[I)I");
+        assert_eq!(v, vec!["[[[I".to_string()]);
+    }
+
+    #[test]
+    fn parse_complex_descriptor() {
+        let sig = "(I[Ljava/lang/Object;JLjava/util/List;[[I)V";
+        let v = MethodArea::parse_params(sig);
+        assert_eq!(
+            v,
+            vec![
+                "I".to_string(),
+                "[Ljava/lang/Object;".to_string(),
+                "J".to_string(),
+                "Ljava/util/List;".to_string(),
+                "[[I".to_string()
+            ]
+        );
     }
 }

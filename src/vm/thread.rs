@@ -7,7 +7,7 @@ pub mod thread {
     use crate::vm::byte_code::byte_code::{self, Instruction};
 
     use crate::vm::class::MethodReference;
-use crate::vm::method_area::MethodAreaPtr;
+use crate::vm::method_area::{MethodArea, MethodAreaPtr};
     use crate::vm::stack::stack::StackFramePtr;
     use crate::vm::{
         class::ClassPtr,
@@ -45,7 +45,70 @@ use crate::vm::method_area::MethodAreaPtr;
 
             Ok(())
         }
-        fn push_frame(&self, method: MethodReference) {
+        pub fn push_frame(&mut self, method_ref: MethodReference) -> Result<(), RunTimeError> {
+            // determine parameter types from method descriptor
+            let method = method_ref.method();
+
+            let params = MethodArea::parse_params(&method.descriptor);
+
+            // compute slot starts
+            let mut starts: Vec<usize> = Vec::new();
+            let mut acc = 0usize;
+            for p in &params {
+                starts.push(acc);
+                let slotc = if p == "J" || p == "D" { 2 } else { 1 };
+                acc += slotc;
+            }
+
+            // create new frame
+            let new_frame = crate::vm::stack::stack::StackFrame::new_ptr(method_ref.clone())?;
+
+            // pop parameters from current frame operand stack and set into new frame locals
+            let current_frame = self
+                .stack
+                .top_frame()
+                .ok_or(RunTimeError::Other("No current frame".to_string()))?;
+
+            // pop parameters in reverse order
+            for i in (0..params.len()).rev() {
+                let p = &params[i];
+                let start = starts[i];
+                let mut nf = new_frame.borrow_mut();
+                let mut cf = current_frame.borrow_mut();
+                match p.as_str() {
+                    "I" | "B" | "S" | "C" | "Z" => {
+                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        nf.set_variable_value(start as u16, v)?;
+                    }
+                    "J" => {
+                        let v: i64 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        nf.set_variable_value(start as u16, v)?;
+                    }
+                    "F" => {
+                        let v: f32 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        nf.set_variable_value(start as u16, v)?;
+                    }
+                    "D" => {
+                        let v: f64 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        nf.set_variable_value(start as u16, v)?;
+                    }
+                    _ => {
+                        // object/array types - treat as reference slot (stored in one slot)
+                        // We don't have a Reference type implemented yet; store raw i32 slot
+                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        nf.set_variable_value(start as u16, v)?;
+                    }
+                }
+            }
+
+            // save return address (current pc) and set pc to 0 for new frame
+            let ret_pc = self.stack.get_pc();
+            self.stack.push_return_address(ret_pc);
+            self.stack.set_pc(0);
+
+            // push new frame
+            self.stack.push_frame(new_frame);
+            Ok(())
         }
         pub fn run_op(&self, op: &byte_code::Op) -> Result<(), RunTimeError> {
             match op.instruction {
@@ -146,8 +209,8 @@ use crate::vm::method_area::MethodAreaPtr;
             }
             Ok(())
         }
-        pub fn invoke(&mut self, class: ClassPtr, method_index: u16) -> Result<(), RunTimeError> {
-            let frame = StackFrame::new_ptr(class, method_index)?;
+        pub fn invoke(&mut self, method_ref: MethodReference) -> Result<(), RunTimeError> {
+            let frame = StackFrame::new_ptr(method_ref)?;
             self.stack.push_frame(frame.clone());
             Ok(())
         }
