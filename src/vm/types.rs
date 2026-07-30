@@ -1,6 +1,19 @@
 pub mod types {
     pub type VarSlot = [u8; 4];
     pub struct Reference {}
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum SlotType {
+        Bool,
+        Byte,
+        Char,
+        Short,
+        Int,
+        Long,
+        Float,
+        Double,
+        Reference,
+        ReturnAddress,
+    }
     pub enum Type {
         Bool(bool),
         Byte(u8),

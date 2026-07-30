@@ -226,6 +226,7 @@ pub mod stack {
                     access_flags: AccessFlags::from(0u16),
                     max_stack: 0,
                     max_locals: 0,
+                    descriptor: "".to_string(),
                     code: vec![],
                 }),
             }

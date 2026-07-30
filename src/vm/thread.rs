@@ -6,7 +6,8 @@ pub mod thread {
     use crate::loader::java_class::java_class::{ConstantPoolInfo, ConstantPoolTag};
     use crate::vm::byte_code::byte_code::{self, Instruction};
 
-    use crate::vm::method_area::MethodAreaPtr;
+    use crate::vm::class::MethodReference;
+use crate::vm::method_area::MethodAreaPtr;
     use crate::vm::stack::stack::StackFramePtr;
     use crate::vm::{
         class::ClassPtr,
@@ -43,6 +44,8 @@ pub mod thread {
             }
 
             Ok(())
+        }
+        fn push_frame(&self, method: MethodReference) {
         }
         pub fn run_op(&self, op: &byte_code::Op) -> Result<(), RunTimeError> {
             match op.instruction {

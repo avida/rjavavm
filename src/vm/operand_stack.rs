@@ -3,19 +3,34 @@ pub mod operand_stack {
     use std::fmt;
     pub struct OperandStack {
         stack: Vec<VarSlot>,
+        types: Vec<SlotType>,
     }
     impl OperandStack {
         pub fn new(size: u16) -> Self {
             let mut vec: Vec<VarSlot> = Vec::with_capacity(size.into());
-            Self { stack: vec }
+            let mut tvec: Vec<SlotType> = Vec::with_capacity(size.into());
+            Self {
+                stack: vec,
+                types: tvec,
+            }
         }
         pub fn push<V: StackValue>(&mut self, value: V) {
-            for slot in value.to_slots() {
+            let slots = value.to_slots();
+            let slot_types = V::slot_types();
+            for (slot, st) in slots.into_iter().zip(slot_types.into_iter()) {
                 self.stack.push(slot);
+                self.types.push(st);
             }
         }
         pub fn pop<P: Popable>(&mut self) -> Option<P> {
-            P::pop_from(&mut self.stack)
+            let before = self.stack.len();
+            let res = P::pop_from(&mut self.stack);
+            let after = self.stack.len();
+            let popped = before.saturating_sub(after);
+            for _ in 0..popped {
+                self.types.pop();
+            }
+            res
         }
         pub fn len(&self) -> usize {
             self.stack.len()
@@ -38,11 +53,15 @@ pub mod operand_stack {
 
     pub trait StackValue {
         fn to_slots(self) -> Vec<VarSlot>;
+        fn slot_types() -> Vec<SlotType>;
     }
 
     impl StackValue for i32 {
         fn to_slots(self) -> Vec<VarSlot> {
             vec![self.to_be_bytes()]
+        }
+        fn slot_types() -> Vec<SlotType> {
+            vec![SlotType::Int]
         }
     }
 
@@ -52,6 +71,9 @@ pub mod operand_stack {
             let v = (self as i32).to_be_bytes();
             vec![v]
         }
+        fn slot_types() -> Vec<SlotType> {
+            vec![SlotType::Byte]
+        }
     }
 
     impl StackValue for i16 {
@@ -60,11 +82,17 @@ pub mod operand_stack {
             let v = (self as i32).to_be_bytes();
             vec![v]
         }
+        fn slot_types() -> Vec<SlotType> {
+            vec![SlotType::Short]
+        }
     }
 
     impl StackValue for f32 {
         fn to_slots(self) -> Vec<VarSlot> {
             vec![self.to_bits().to_be_bytes()]
+        }
+        fn slot_types() -> Vec<SlotType> {
+            vec![SlotType::Float]
         }
     }
 
@@ -73,6 +101,9 @@ pub mod operand_stack {
             let b = self.to_be_bytes();
             vec![[b[0], b[1], b[2], b[3]], [b[4], b[5], b[6], b[7]]]
         }
+        fn slot_types() -> Vec<SlotType> {
+            vec![SlotType::Long, SlotType::Long]
+        }
     }
 
     impl StackValue for f64 {
@@ -80,6 +111,9 @@ pub mod operand_stack {
             let bits = self.to_bits();
             let b = bits.to_be_bytes();
             vec![[b[0], b[1], b[2], b[3]], [b[4], b[5], b[6], b[7]]]
+        }
+        fn slot_types() -> Vec<SlotType> {
+            vec![SlotType::Double, SlotType::Double]
         }
     }
 
