@@ -45,11 +45,6 @@ impl Runtime {
             })
             .unwrap_or_else(|| "<unknown>".to_string());
 
-        println!(
-            "method_area reference count: {}",
-            Arc::strong_count(&self.method_area)
-        );
-
         self.method_area.lock().unwrap().insert(name, class.clone());
         class
     }
