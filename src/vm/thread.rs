@@ -125,7 +125,7 @@ pub mod thread {
             self.stack.push_frame(new_frame);
             Ok(())
         }
-        pub fn run_op(&self, op: &byte_code::Op) -> Result<(), RunTimeError> {
+        pub fn run_op(&mut self, op: &byte_code::Op) -> Result<(), RunTimeError> {
             match op.instruction {
                 Instruction::Sipush => {
                     let param = bytes_to_short!(op.args);
@@ -141,7 +141,7 @@ pub mod thread {
                     let param = bytes_to_short!(op.args);
                     println!("Executing {op}, {param}");
                     let frame_ref = self.current_frame.as_ref().unwrap().borrow();
-                    let const_pool = &&frame_ref.class.constant_pool;
+                    let const_pool = &frame_ref.class.constant_pool;
                     let index = param as u16;
 
                     match const_pool.as_ref()[index as usize - 1].tag {
@@ -161,8 +161,9 @@ pub mod thread {
 
                                 let mut ma = self.method_area.lock().unwrap();
                                 match ma.resolve(&identifier) {
-                                    Ok(_method_ref) => {
+                                    Ok(method_ref) => {
                                         println!("Resolved via MethodArea: {}", identifier);
+                                        // self.push_frame(method_ref);
                                     }
                                     Err(e) => return Err(e),
                                 }

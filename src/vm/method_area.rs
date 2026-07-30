@@ -202,40 +202,66 @@ mod tests {
 
     #[test]
     fn parse_empty_params() {
-        assert_eq!(MethodArea::parse_params("()V"), Vec::<String>::new());
+        assert_eq!(MethodArea::parse_params("java/lang/Foo.bar()V"), Vec::<String>::new());
     }
 
     #[test]
     fn parse_primitive_and_object() {
-        let v = MethodArea::parse_params("(ILjava/lang/String;)V");
+        let v = MethodArea::parse_params("java/lang/Example.doIt(ILjava/lang/String;)V");
         assert_eq!(v, vec!["I".to_string(), "Ljava/lang/String;".to_string()]);
     }
 
     #[test]
     fn parse_wide_and_array() {
-        let v = MethodArea::parse_params("(J[D)I");
+        let v = MethodArea::parse_params("pkg/Some.longAndArray(J[D)I");
         assert_eq!(v, vec!["J".to_string(), "[D".to_string()]);
     }
 
     #[test]
     fn parse_multi_dim_array() {
-        let v = MethodArea::parse_params("([[[I)I");
+        let v = MethodArea::parse_params("X/Y.z([[[I)I");
         assert_eq!(v, vec!["[[[I".to_string()]);
     }
 
     #[test]
     fn parse_complex_descriptor() {
-        let sig = "(I[Ljava/lang/Object;JLjava/util/List;[[I)V";
+        let sig = "java/lang/Integer.valueOf(I)Ljava/lang/Integer;";
         let v = MethodArea::parse_params(sig);
         assert_eq!(
             v,
             vec![
-                "I".to_string(),
-                "[Ljava/lang/Object;".to_string(),
-                "J".to_string(),
-                "Ljava/util/List;".to_string(),
-                "[[I".to_string()
+                "I".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn parse_various_identifiers() {
+        let cases = vec![
+            (
+                "com/example/Foo.bar([Ljava/lang/String;I)V",
+                vec!["[Ljava/lang/String;".to_string(), "I".to_string()],
+            ),
+            (
+                "a/b/C.m()V",
+                vec![],
+            ),
+            (
+                "pkg/Cls.method(IJFDLjava/lang/String;[[I)[I",
+                vec![
+                    "I".to_string(),
+                    "J".to_string(),
+                    "F".to_string(),
+                    "D".to_string(),
+                    "Ljava/lang/String;".to_string(),
+                    "[[I".to_string(),
+                ],
+            ),
+        ];
+
+        for (sig, expected) in cases {
+            let v = MethodArea::parse_params(sig);
+            assert_eq!(v, expected);
+        }
     }
 }
