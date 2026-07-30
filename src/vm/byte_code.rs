@@ -29,6 +29,11 @@ pub mod byte_code {
         Aload1 = 0x2b,
         Aload2 = 0x2c,
         Aload3 = 0x2d,
+        Iload = 0x15,
+        Iload0 = 0x1a,
+        Iload1 = 0x1b,
+        Iload2 = 0x1c,
+        Iload3 = 0x1d,
         IconstM1 = 0x02,
         Iconst0 = 0x03,
         Iconst1 = 0x04,
@@ -72,6 +77,7 @@ pub mod byte_code {
 
         let (instruction, arg_len) = match op {
             0x11 => (Instruction::Sipush, 2),
+            0x15 => (Instruction::Iload, 1),
             0x60 => (Instruction::Iadd, 0),
             0x64 => (Instruction::Isub, 0),
             0x57 => (Instruction::Pop, 0),
@@ -84,6 +90,10 @@ pub mod byte_code {
             0x08 => (Instruction::Iconst5, 0),
             0x12 => (Instruction::Ldc, 1),
             0x19 => (Instruction::Aload, 1),
+            0x1a => (Instruction::Iload0, 0),
+            0x1b => (Instruction::Iload1, 0),
+            0x1c => (Instruction::Iload2, 0),
+            0x1d => (Instruction::Iload3, 0),
             0x2a => (Instruction::Aload0, 0),
             0x2b => (Instruction::Aload1, 0),
             0x2c => (Instruction::Aload2, 0),
@@ -144,6 +154,11 @@ pub mod byte_code {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 Instruction::Sipush => write!(f, "sipush"),
+                Instruction::Iload => write!(f, "iload"),
+                Instruction::Iload0 => write!(f, "iload_0"),
+                Instruction::Iload1 => write!(f, "iload_1"),
+                Instruction::Iload2 => write!(f, "iload_2"),
+                Instruction::Iload3 => write!(f, "iload_3"),
                 Instruction::Iadd => write!(f, "iadd"),
                 Instruction::Isub => write!(f, "isub"),
                 Instruction::Pop => write!(f, "pop"),

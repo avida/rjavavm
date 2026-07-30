@@ -22,30 +22,47 @@ pub mod thread {
         current_frame: Option<StackFramePtr>,
         method_area: MethodAreaPtr,
     }
+    macro_rules! set_current_frame {
+        ($self:ident) => {{
+            let current_frame = $self
+                .stack
+                .top_frame()
+                .ok_or(RunTimeError::Other("Stack is empty".to_string()))?;
+            $self.current_frame = Some(current_frame.clone());
+            let class = current_frame.borrow_mut().class.clone();
+            let method = current_frame.borrow_mut().method.clone();
+            (class, method)
+        }};
+    }
+    enum RunResult {
+        Invoke(MethodReference),
+    }
 
     impl Thread {
         pub fn run(&mut self) -> Result<(), RunTimeError> {
             println!("Running thread");
-            let current_frame = self
-                .stack
-                .top_frame()
-                .ok_or(RunTimeError::Other("Stack is empty".to_string()))?;
-            self.current_frame = Some(current_frame.clone());
-
-            let class = current_frame.borrow_mut().class.clone();
-            let method = current_frame.borrow_mut().method.clone();
-            let pc = self.stack.get_pc();
+            let (mut class, mut method) = set_current_frame!(self);
             loop {
                 let (next_op, args_len) =
                     byte_code::parse_op_at(&method.code, self.stack.get_pc())?;
-                // println!("Next op is {}, next_offset {}", next_op, next_op.args.len());
-                self.run_op(&next_op)?;
+                match self.run_op(&next_op) {
+                    Ok(Some(RunResult::Invoke(method_ref))) => {
+                        println!("Invoke");
+                        self.push_frame(&method_ref)?;
+                        (class, method) = set_current_frame!(self);
+                        continue;
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        return Err(e);
+                    }
+                }
                 self.stack.increase_pc(args_len + 1);
             }
 
             Ok(())
         }
-        pub fn push_frame(&mut self, method_ref: MethodReference) -> Result<(), RunTimeError> {
+        fn push_frame(&mut self, method_ref: &MethodReference) -> Result<(), RunTimeError> {
             // determine parameter types from method descriptor
             let method = method_ref.method();
 
@@ -122,10 +139,13 @@ pub mod thread {
             self.stack.set_pc(0);
 
             // push new frame
-            self.stack.push_frame(new_frame);
+            self.stack.push_frame(new_frame.clone());
+            // update current frame to the newly pushed frame
+            self.current_frame = Some(new_frame.clone());
+
             Ok(())
         }
-        pub fn run_op(&mut self, op: &byte_code::Op) -> Result<(), RunTimeError> {
+        fn run_op(&mut self, op: &byte_code::Op) -> Result<Option<RunResult>, RunTimeError> {
             match op.instruction {
                 Instruction::Sipush => {
                     let param = bytes_to_short!(op.args);
@@ -163,7 +183,7 @@ pub mod thread {
                                 match ma.resolve(&identifier) {
                                     Ok(method_ref) => {
                                         println!("Resolved via MethodArea: {}", identifier);
-                                        // self.push_frame(method_ref);
+                                        return Ok(Some(RunResult::Invoke(method_ref)));
                                     }
                                     Err(e) => return Err(e),
                                 }
@@ -184,6 +204,42 @@ pub mod thread {
                 }
                 Instruction::Iadd => {
                     println!("Executing {op}");
+                }
+                Instruction::Iload => {
+                    let idx = op.args[0] as u16;
+                    let val: i32 = self
+                        .current_frame
+                        .as_ref()
+                        .unwrap()
+                        .borrow()
+                        .get_variable_value(idx)?;
+                    self.current_frame
+                        .as_ref()
+                        .unwrap()
+                        .borrow_mut()
+                        .operand_stack
+                        .push(val);
+                    println!("Executing {op} {}", idx);
+                }
+                Instruction::Iload0
+                | Instruction::Iload1
+                | Instruction::Iload2
+                | Instruction::Iload3 => {
+                    let pos = op.instruction - Instruction::Iload0;
+                    let idx = pos as u16;
+                    let val: i32 = self
+                        .current_frame
+                        .as_ref()
+                        .unwrap()
+                        .borrow()
+                        .get_variable_value(idx)?;
+                    self.current_frame
+                        .as_ref()
+                        .unwrap()
+                        .borrow_mut()
+                        .operand_stack
+                        .push(val);
+                    println!("Executing {op} {idx}");
                 }
                 Instruction::Pop => {
                     println!("Executing {op}");
@@ -223,7 +279,7 @@ pub mod thread {
                     )));
                 }
             }
-            Ok(())
+            Ok(None)
         }
         pub fn invoke(&mut self, method_ref: MethodReference) -> Result<(), RunTimeError> {
             let frame = StackFrame::new_ptr(method_ref)?;
