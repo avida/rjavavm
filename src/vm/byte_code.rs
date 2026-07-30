@@ -22,6 +22,7 @@ pub mod byte_code {
     #[repr(u8)]
     #[derive(Copy, Clone)]
     pub enum Instruction {
+        Bipush = 0x10,
         Sipush = 0x11,
         Ldc = 0x12,
         Aload = 0x19,
@@ -77,6 +78,7 @@ pub mod byte_code {
 
         let (instruction, arg_len) = match op {
             0x11 => (Instruction::Sipush, 2),
+            0x10 => (Instruction::Bipush, 1),
             0x15 => (Instruction::Iload, 1),
             0x60 => (Instruction::Iadd, 0),
             0x64 => (Instruction::Isub, 0),
@@ -89,7 +91,7 @@ pub mod byte_code {
             0x07 => (Instruction::Iconst4, 0),
             0x08 => (Instruction::Iconst5, 0),
             0x12 => (Instruction::Ldc, 1),
-            0x19 => (Instruction::Aload, 1),
+            0x19 => (Instruction::Iload, 1),
             0x1a => (Instruction::Iload0, 0),
             0x1b => (Instruction::Iload1, 0),
             0x1c => (Instruction::Iload2, 0),
@@ -154,6 +156,7 @@ pub mod byte_code {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 Instruction::Sipush => write!(f, "sipush"),
+                Instruction::Bipush => write!(f, "bipush"),
                 Instruction::Iload => write!(f, "iload"),
                 Instruction::Iload0 => write!(f, "iload_0"),
                 Instruction::Iload1 => write!(f, "iload_1"),
@@ -213,6 +216,23 @@ pub mod byte_code {
         use super::*;
 
         #[test]
+        fn test_parse_bipush() {
+            let bytes: &[u8] = &[
+                0x10, 0x7f, // bipush 127
+                0x10, 0x80, // bipush -128 (0x80 interpreted as signed byte)
+            ];
+
+            let ops = parse(bytes).unwrap();
+            assert_eq!(ops.len(), 2);
+            match ops[0].instruction {
+                Instruction::Bipush => assert_eq!(ops[0].args, &[0x7fu8]),
+                _ => panic!("expected bipush"),
+            }
+            match ops[1].instruction {
+                Instruction::Bipush => assert_eq!(ops[1].args, &[0x80u8]),
+                _ => panic!("expected bipush"),
+            }
+        }
         fn test_parse_iadd_and_pop() {
             let bytes: &[u8] = &[
                 0x03, // iconst_0

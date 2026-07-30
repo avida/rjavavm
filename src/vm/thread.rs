@@ -157,6 +157,16 @@ pub mod thread {
                         .push(param);
                     println!("Executing {op}, {param}");
                 }
+                Instruction::Bipush => {
+                    let param = op.args[0] as i8;
+                    self.current_frame
+                        .as_ref()
+                        .unwrap()
+                        .borrow_mut()
+                        .operand_stack
+                        .push(param);
+                    println!("Executing {op}, {param}");
+                }
                 Instruction::Invokestatic => {
                     let param = bytes_to_short!(op.args);
                     println!("Executing {op}, {param}");
