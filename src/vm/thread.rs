@@ -208,6 +208,86 @@ pub mod thread {
                     let param = bytes_to_short!(op.args);
                     println!("Executing {op}, {param}");
                 }
+                Instruction::IfIcmpeq
+                | Instruction::IfIcmpne
+                | Instruction::IfIcmplt
+                | Instruction::IfIcmpge
+                | Instruction::IfIcmpgt
+                | Instruction::IfIcmple => {
+                    // branch offset is a signed short relative to the opcode index
+                    let offset = bytes_to_short!(op.args) as isize;
+                    let arg_len = op.args.len();
+
+                    let v2: i32 = self
+                        .current_frame
+                        .as_ref()
+                        .unwrap()
+                        .borrow_mut()
+                        .operand_stack
+                        .pop()
+                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                    let v1: i32 = self
+                        .current_frame
+                        .as_ref()
+                        .unwrap()
+                        .borrow_mut()
+                        .operand_stack
+                        .pop()
+                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+
+                    let take_branch = match op.instruction {
+                        Instruction::IfIcmpeq => v1 == v2,
+                        Instruction::IfIcmpne => v1 != v2,
+                        Instruction::IfIcmplt => v1 < v2,
+                        Instruction::IfIcmpge => v1 >= v2,
+                        Instruction::IfIcmpgt => v1 > v2,
+                        Instruction::IfIcmple => v1 <= v2,
+                        _ => false,
+                    };
+
+                    println!("Executing {op}, v1={} v2={} take_branch={}", v1, v2, take_branch);
+                    if take_branch {
+                        let target = (op.index as isize) + offset;
+                        let new_pc = target - ((1 + arg_len) as isize);
+                        self.stack.set_pc(new_pc as usize);
+                    }
+                }
+                Instruction::IfEq
+                | Instruction::IfNe
+                | Instruction::IfLt
+                | Instruction::IfGe
+                | Instruction::IfGt
+                | Instruction::IfLe => {
+                    let offset = bytes_to_short!(op.args) as isize;
+                    let arg_len = op.args.len();
+
+                    let v: i32 = self
+                        .current_frame
+                        .as_ref()
+                        .unwrap()
+                        .borrow_mut()
+                        .operand_stack
+                        .pop()
+                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+
+                    let take_branch = match op.instruction {
+                        Instruction::IfEq => v == 0,
+                        Instruction::IfNe => v != 0,
+                        Instruction::IfLt => v < 0,
+                        Instruction::IfGe => v >= 0,
+                        Instruction::IfGt => v > 0,
+                        Instruction::IfLe => v <= 0,
+                        _ => false,
+                    };
+
+                    println!("Executing {op}, v={} take_branch={}", v, take_branch);
+
+                    if take_branch {
+                        let target = (op.index as isize) + offset;
+                        let new_pc = target - ((1 + arg_len) as isize);
+                        self.stack.set_pc(new_pc as usize);
+                    }
+                }
                 Instruction::Invokevirtual => {
                     let param = bytes_to_short!(op.args);
                     println!("Executing {op}, {param}");

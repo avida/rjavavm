@@ -24,6 +24,9 @@ pub mod byte_code {
     pub enum Instruction {
         Bipush = 0x10,
         Sipush = 0x11,
+        IfIcmpeq = 0x9f,
+        IfIcmpne = 0xa0,
+        IfIcmplt = 0xa1,
         Ldc = 0x12,
         Aload = 0x19,
         Aload0 = 0x2a,
@@ -57,6 +60,14 @@ pub mod byte_code {
         Invokestatic = 0xb8,
         Invokedynamic = 0xba,
         IfIcmpge = 0xa2,
+        IfIcmpgt = 0xa3,
+        IfIcmple = 0xa4,
+        IfEq = 0x99,
+        IfNe = 0x9a,
+        IfLt = 0x9b,
+        IfGe = 0x9c,
+        IfGt = 0x9d,
+        IfLe = 0x9e,
         Return = 0xb1,
     }
 
@@ -78,6 +89,15 @@ pub mod byte_code {
 
         let (instruction, arg_len) = match op {
             0x11 => (Instruction::Sipush, 2),
+            0x99 => (Instruction::IfEq, 2),
+            0x9a => (Instruction::IfNe, 2),
+            0x9b => (Instruction::IfLt, 2),
+            0x9c => (Instruction::IfGe, 2),
+            0x9d => (Instruction::IfGt, 2),
+            0x9e => (Instruction::IfLe, 2),
+            0x9f => (Instruction::IfIcmpeq, 2),
+            0xa0 => (Instruction::IfIcmpne, 2),
+            0xa1 => (Instruction::IfIcmplt, 2),
             0x10 => (Instruction::Bipush, 1),
             0x15 => (Instruction::Iload, 1),
             0x60 => (Instruction::Iadd, 0),
@@ -112,6 +132,8 @@ pub mod byte_code {
             0xb8 => (Instruction::Invokestatic, 2),
             0xba => (Instruction::Invokedynamic, 4),
             0xa2 => (Instruction::IfIcmpge, 2),
+            0xa3 => (Instruction::IfIcmpgt, 2),
+            0xa4 => (Instruction::IfIcmple, 2),
             0xb1 => (Instruction::Return, 0),
             _ => {
                 return Err(RunTimeError::Other(format!(
@@ -156,6 +178,15 @@ pub mod byte_code {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 Instruction::Sipush => write!(f, "sipush"),
+                Instruction::IfIcmpeq => write!(f, "if_icmpeq"),
+                Instruction::IfIcmpne => write!(f, "if_icmpne"),
+                Instruction::IfIcmplt => write!(f, "if_icmplt"),
+                Instruction::IfEq => write!(f, "ifeq"),
+                Instruction::IfNe => write!(f, "ifne"),
+                Instruction::IfLt => write!(f, "iflt"),
+                Instruction::IfGe => write!(f, "ifge"),
+                Instruction::IfGt => write!(f, "ifgt"),
+                Instruction::IfLe => write!(f, "ifle"),
                 Instruction::Bipush => write!(f, "bipush"),
                 Instruction::Iload => write!(f, "iload"),
                 Instruction::Iload0 => write!(f, "iload_0"),
@@ -185,6 +216,8 @@ pub mod byte_code {
                 Instruction::Invokestatic => write!(f, "invokestatic"),
                 Instruction::Invokedynamic => write!(f, "invokedynamic"),
                 Instruction::IfIcmpge => write!(f, "if_icmpge"),
+                Instruction::IfIcmpgt => write!(f, "if_icmpgt"),
+                Instruction::IfIcmple => write!(f, "if_icmple"),
                 Instruction::Return => write!(f, "return"),
                 Instruction::Astore => write!(f, "astore"),
                 Instruction::Astore0 => write!(f, "astore_0"),
