@@ -232,8 +232,7 @@ pub mod java_class {
                 }
                 ConstantPoolPFieldInfo::Package { name_index } => {
                     write!(f, "Package name_index={}", name_index)
-                }
-                // _ => write!(f, "Unimplemented"),
+                } // _ => write!(f, "Unimplemented"),
             }
         }
     }

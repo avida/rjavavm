@@ -1,7 +1,7 @@
-use crate::vm::class::{Class, ClassPtr, MethodReference};
 use crate::loader::class_loader::class_loader::load;
 use crate::loader::java_class::java_class::{ConstantPoolPFieldInfo, JavaClassPtr};
 use crate::loader::utils::utils::lookup_class_file;
+use crate::vm::class::{Class, ClassPtr, MethodReference};
 use crate::vm::errors::errors::RunTimeError;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -12,7 +12,6 @@ pub struct MethodArea {
     pub class_constant_pool_map: HashMap<String, ClassPtr>,
     pub resolved_methods: HashMap<String, MethodReference>,
 }
-
 
 impl MethodArea {
     pub fn new() -> MethodAreaPtr {
@@ -51,18 +50,20 @@ impl MethodArea {
         if let Some(path) = lookup_class_file(class_path) {
             load(path.to_str().unwrap())
                 .map(|jc| self.init_class(jc))
-                .map_err(|_| RunTimeError::ClassLoadError(format!(
-                    "Failed to load class file for {} at {}",
-                    class_path,
-                    path.display()
-                )))
+                .map_err(|_| {
+                    RunTimeError::ClassLoadError(format!(
+                        "Failed to load class file for {} at {}",
+                        class_path,
+                        path.display()
+                    ))
+                })
         } else {
-            load(class_path)
-                .map(|jc| self.init_class(jc))
-                .map_err(|_| RunTimeError::ClassLoadError(format!(
+            load(class_path).map(|jc| self.init_class(jc)).map_err(|_| {
+                RunTimeError::ClassLoadError(format!(
                     "Failed to load class from path {}",
                     class_path
-                )))
+                ))
+            })
         }
     }
 
@@ -88,18 +89,24 @@ impl MethodArea {
                         }
                         'L' => {
                             let mut j = i + 1;
-                            while j < end && bytes[j] as char != ';' { j += 1; }
+                            while j < end && bytes[j] as char != ';' {
+                                j += 1;
+                            }
                             let s = &desc[i..=j];
                             res.push(s.to_string());
                             i = j + 1;
                         }
                         '[' => {
                             let mut j = i + 1;
-                            while j < end && bytes[j] as char == '[' { j += 1; }
+                            while j < end && bytes[j] as char == '[' {
+                                j += 1;
+                            }
                             if j < end {
                                 if bytes[j] as char == 'L' {
                                     let mut k = j + 1;
-                                    while k < end && bytes[k] as char != ';' { k += 1; }
+                                    while k < end && bytes[k] as char != ';' {
+                                        k += 1;
+                                    }
                                     let s = &desc[i..=k];
                                     res.push(s.to_string());
                                     i = k + 1;
@@ -108,9 +115,13 @@ impl MethodArea {
                                     res.push(s.to_string());
                                     i = j + 1;
                                 }
-                            } else { break; }
+                            } else {
+                                break;
+                            }
                         }
-                        _ => { i += 1; }
+                        _ => {
+                            i += 1;
+                        }
                     }
                 }
             }
@@ -140,7 +151,10 @@ impl MethodArea {
         if let Some(r2) = self.resolved_methods.get(identifier) {
             Ok(r2.clone())
         } else {
-            Err(RunTimeError::Other(format!("Method {} not found", identifier)))
+            Err(RunTimeError::Other(format!(
+                "Method {} not found",
+                identifier
+            )))
         }
     }
 

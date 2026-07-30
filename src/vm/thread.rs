@@ -7,7 +7,7 @@ pub mod thread {
     use crate::vm::byte_code::byte_code::{self, Instruction};
 
     use crate::vm::class::MethodReference;
-use crate::vm::method_area::{MethodArea, MethodAreaPtr};
+    use crate::vm::method_area::{MethodArea, MethodAreaPtr};
     use crate::vm::stack::stack::StackFramePtr;
     use crate::vm::{
         class::ClassPtr,
@@ -77,25 +77,40 @@ use crate::vm::method_area::{MethodArea, MethodAreaPtr};
                 let mut cf = current_frame.borrow_mut();
                 match p.as_str() {
                     "I" | "B" | "S" | "C" | "Z" => {
-                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        let v: i32 = cf
+                            .operand_stack
+                            .pop()
+                            .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
                         nf.set_variable_value(start as u16, v)?;
                     }
                     "J" => {
-                        let v: i64 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        let v: i64 = cf
+                            .operand_stack
+                            .pop()
+                            .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
                         nf.set_variable_value(start as u16, v)?;
                     }
                     "F" => {
-                        let v: f32 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        let v: f32 = cf
+                            .operand_stack
+                            .pop()
+                            .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
                         nf.set_variable_value(start as u16, v)?;
                     }
                     "D" => {
-                        let v: f64 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        let v: f64 = cf
+                            .operand_stack
+                            .pop()
+                            .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
                         nf.set_variable_value(start as u16, v)?;
                     }
                     _ => {
                         // object/array types - treat as reference slot (stored in one slot)
                         // We don't have a Reference type implemented yet; store raw i32 slot
-                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                        let v: i32 = cf
+                            .operand_stack
+                            .pop()
+                            .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
                         nf.set_variable_value(start as u16, v)?;
                     }
                 }
@@ -136,12 +151,12 @@ use crate::vm::method_area::{MethodArea, MethodAreaPtr};
                                 // already resolved on class
                             } else {
                                 println!("Method at {index} not resolved");
-                                let identifier = class
-                                    .resolve_ref_to_identifier(index)
-                                    .ok_or(RunTimeError::ResolveMethodError(format!(
+                                let identifier = class.resolve_ref_to_identifier(index).ok_or(
+                                    RunTimeError::ResolveMethodError(format!(
                                         "Failed to resolve constant pool ref {}",
                                         index
-                                    )))?;
+                                    )),
+                                )?;
                                 println!("Resolved identifier: {identifier}");
 
                                 let mut ma = self.method_area.lock().unwrap();

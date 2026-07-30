@@ -70,7 +70,7 @@ impl Class {
     pub fn get_field_by_index(&self, index: u16) -> Option<&FieldPtr> {
         self.field_by_index.get(&index)
     }
-    
+
     pub fn cp_get(&self, index: u16) -> Option<&ConstantPoolInfo> {
         if index == 0 {
             return None;
@@ -124,7 +124,7 @@ impl Class {
             _ => None,
         }
     }
-    
+
     fn load_methods(class_info: &JavaClass) -> (Vec<MethodPtr>, HashMap<u16, MethodPtr>) {
         let mut methods: Vec<MethodPtr> = Vec::new();
         let mut method_by_index: HashMap<u16, MethodPtr> = HashMap::new();
@@ -136,7 +136,8 @@ impl Class {
                 }
                 _ => "<invalid>".to_string(),
             };
-            let descriptor = match &class_info.constant_pool[(m.descriptor_index - 1) as usize].info {
+            let descriptor = match &class_info.constant_pool[(m.descriptor_index - 1) as usize].info
+            {
                 ConstantPoolPFieldInfo::Utf8Info { length: _, bytes } => {
                     String::from_utf8_lossy(bytes).to_string()
                 }
@@ -246,7 +247,7 @@ impl Class {
         (fields, field_by_index)
     }
 
-    pub fn init(class_info: &JavaClass) -> ClassPtr{
+    pub fn init(class_info: &JavaClass) -> ClassPtr {
         let (methods, method_by_index) = Class::load_methods(class_info);
         let (fields, field_by_index) = Class::load_fields(class_info);
 

@@ -1,10 +1,10 @@
 use crate::vm::class::{Class, ClassPtr, MethodReference};
-use std::rc::Rc;
 use crate::vm::errors::errors::RunTimeError;
 use crate::vm::method_area::{MethodArea, MethodAreaPtr};
 use crate::vm::thread::thread::Thread;
 use std::env;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 pub struct Runtime {
@@ -22,13 +22,14 @@ impl Runtime {
         }
     }
 
-    
-
     pub fn load_class(&mut self, class_path: &str) -> Result<ClassPtr, RunTimeError> {
         self.method_area.lock().unwrap().load_class(class_path)
     }
     fn get_or_load_class(&mut self, class_path: &str) -> Result<ClassPtr, RunTimeError> {
-        self.method_area.lock().unwrap().get_or_load_class(class_path)
+        self.method_area
+            .lock()
+            .unwrap()
+            .get_or_load_class(class_path)
     }
 
     pub fn run(&mut self, class_path: &str) -> Result<(), RunTimeError> {
