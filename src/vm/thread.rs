@@ -65,15 +65,17 @@ use crate::vm::stack::stack::StackFramePtr;
                     println!("Executing {op}, {param}");
                     let frame_ref = self.current_frame.as_ref().unwrap().borrow();
                     let const_pool = &&frame_ref.class.constant_pool;
-                    let index = param as usize;
+                    let index = param as u16;
 
-                    match const_pool.as_ref()[index - 1].tag {
+                    match const_pool.as_ref()[index as usize - 1].tag {
                         ConstantPoolTag::Methodref => {
                             let class = frame_ref.class.as_ref();
-                            if let Some(method) = class.get_method_by_index(index as u16) {
+                            if let Some(method) = class.get_method_by_index(index) {
 
                             } else {
-                            println!("Method  at {index} not resolved");
+                                println!("Method at {index} not resolved");
+                                let r = class.resolve_ref_to_identifier(index);
+                                println!("Resolved: {r:?}");
                             }
 
                             println!("Tag found");

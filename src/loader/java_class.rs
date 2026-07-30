@@ -373,41 +373,5 @@ pub mod java_class {
             }
             Some(&self.constant_pool[idx - 1])
         }
-
-        pub fn get_utf8(&self, index: u16) -> Option<String> {
-            match &self.cp_get(index)?.info {
-                ConstantPoolPFieldInfo::Utf8Info { bytes, .. } => {
-                    Some(String::from_utf8_lossy(bytes).into_owned())
-                }
-                _ => None,
-            }
-        }
-
-        pub fn get_class_name(&self, index: u16) -> Option<String> {
-            match &self.cp_get(index)?.info {
-                ConstantPoolPFieldInfo::ClassInfo { name_index } => self.get_utf8(*name_index),
-                _ => None,
-            }
-        }
-
-        pub fn get_name_and_type(&self, index: u16) -> Option<(String, String)> {
-            match &self.cp_get(index)?.info {
-                ConstantPoolPFieldInfo::NameAndType {
-                    name_index,
-                    descriptor_index,
-                } => {
-                    let name = self.get_utf8(*name_index)?;
-                    let desc = self.get_utf8(*descriptor_index)?;
-                    Some((name, desc))
-                }
-                _ => None,
-            }
-        }
-
-        pub fn resolve_ref(&self, r: &RefFieldInfo) -> Option<(String, String, String)> {
-            let class_name = self.get_class_name(r.class_index)?;
-            let (name, desc) = self.get_name_and_type(r.name_and_type_index)?;
-            Some((class_name, name, desc))
-        }
     }
 }

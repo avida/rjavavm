@@ -1,6 +1,6 @@
 use crate::loader::attributes::attributes::{Attribute, parse_attribute_info};
 use crate::loader::java_class::java_class::{
-    ConstantPoolInfoTable, ConstantPoolPFieldInfo, JavaClass,
+    ConstantPoolInfo, ConstantPoolInfoTable, ConstantPoolPFieldInfo, JavaClass,
 };
 use crate::vm::AccessFlags;
 use crate::vm::class;
@@ -10,6 +10,7 @@ use std::rc::Rc;
 #[derive(Debug, Clone)]
 pub struct Method {
     pub name: String,
+    pub descriptor: String,
     pub access_flags: AccessFlags,
     pub max_stack: u16,
     pub max_locals: u16,
@@ -18,10 +19,15 @@ pub struct Method {
 }
 pub type MethodPtr = Rc<Method>;
 
+#[derive(Debug, Clone)]
 pub struct MethodReference {
     method: MethodPtr,
-    class: ClassPtr
-
+    class: ClassPtr,
+}
+impl MethodReference {
+    pub fn new(method: MethodPtr, class: ClassPtr) -> Self {
+        MethodReference { method, class }
+    }
 }
 #[derive(Debug, Clone)]
 pub struct Field {
@@ -59,12 +65,72 @@ impl Class {
         self.field_by_index.get(&index)
     }
     
+    pub fn cp_get(&self, index: u16) -> Option<&ConstantPoolInfo> {
+        if index == 0 {
+            return None;
+        }
+        let idx = index as usize;
+        if idx == 0 || idx > self.constant_pool.len() {
+            return None;
+        }
+        Some(&self.constant_pool[idx - 1])
+    }
+
+    pub fn get_utf8(&self, index: u16) -> Option<String> {
+        match &self.cp_get(index)?.info {
+            ConstantPoolPFieldInfo::Utf8Info { bytes, .. } => {
+                Some(String::from_utf8_lossy(bytes).into_owned())
+            }
+            _ => None,
+        }
+    }
+
+    pub fn get_class_name(&self, index: u16) -> Option<String> {
+        match &self.cp_get(index)?.info {
+            ConstantPoolPFieldInfo::ClassInfo { name_index } => self.get_utf8(*name_index),
+            _ => None,
+        }
+    }
+
+    pub fn get_name_and_type(&self, index: u16) -> Option<(String, String)> {
+        match &self.cp_get(index)?.info {
+            ConstantPoolPFieldInfo::NameAndType {
+                name_index,
+                descriptor_index,
+            } => {
+                let name = self.get_utf8(*name_index)?;
+                let desc = self.get_utf8(*descriptor_index)?;
+                Some((name, desc))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn resolve_ref_to_identifier(&self, index: u16) -> Option<String> {
+        match &self.cp_get(index)?.info {
+            ConstantPoolPFieldInfo::MethodRef(r)
+            | ConstantPoolPFieldInfo::InterfaceMethodRef(r)
+            | ConstantPoolPFieldInfo::FieldRef(r) => {
+                let class_name = self.get_class_name(r.class_index)?;
+                let (name, desc) = self.get_name_and_type(r.name_and_type_index)?;
+                Some(format!("{}.{}{}", class_name, name, desc))
+            }
+            _ => None,
+        }
+    }
+    
     fn load_methods(class_info: &JavaClass) -> (Vec<MethodPtr>, HashMap<u16, MethodPtr>) {
         let mut methods: Vec<MethodPtr> = Vec::new();
         let mut method_by_index: HashMap<u16, MethodPtr> = HashMap::new();
         for m in &class_info.methods {
-            // get name from constant pool
+            // get name and descriptor from constant pool
             let name = match &class_info.constant_pool[(m.name_index - 1) as usize].info {
+                ConstantPoolPFieldInfo::Utf8Info { length: _, bytes } => {
+                    String::from_utf8_lossy(bytes).to_string()
+                }
+                _ => "<invalid>".to_string(),
+            };
+            let descriptor = match &class_info.constant_pool[(m.descriptor_index - 1) as usize].info {
                 ConstantPoolPFieldInfo::Utf8Info { length: _, bytes } => {
                     String::from_utf8_lossy(bytes).to_string()
                 }
@@ -92,6 +158,7 @@ impl Class {
 
             let method = Rc::new(Method {
                 name,
+                descriptor,
                 access_flags: AccessFlags::from(m.access_flags),
                 max_stack,
                 max_locals,

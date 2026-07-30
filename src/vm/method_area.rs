@@ -5,23 +5,36 @@ use std::rc::Rc;
 pub type MethodAreaPtr = Rc<MethodArea>;
 pub struct MethodArea {
     pub class_constant_pool_map: HashMap<String, ClassPtr>,
+    pub resolved_methods: HashMap<String, MethodReference>,
 }
 
 impl MethodArea {
     pub fn new() -> MethodAreaPtr {
         Rc::new(MethodArea {
             class_constant_pool_map: HashMap::new(),
+            resolved_methods: HashMap::new(),
         })
     }
 
-    pub fn init(class_name: String, pool: ClassPtr) -> MethodAreaPtr {
-        let mut ma = MethodArea::new();
-        Rc::get_mut(&mut ma).unwrap().insert(class_name, pool);
-        ma
+    pub fn insert(&mut self, class_name: String, pool: ClassPtr) {
+        self.insert_resolved_for_class(&class_name, &pool);
+        self.class_constant_pool_map.insert(class_name, pool);
     }
 
-    pub fn insert(&mut self, class_name: String, pool: ClassPtr) {
-        self.class_constant_pool_map.insert(class_name, pool);
+    pub fn get_resolved_method(&self, identifier: &str) -> Option<&MethodReference> {
+        self.resolved_methods.get(identifier)
+    }
+
+    pub fn insert_resolved_method(&mut self, identifier: String, reference: MethodReference) {
+        self.resolved_methods.insert(identifier, reference);
+    }
+
+    pub fn insert_resolved_for_class(&mut self, class_name: &String, class_ptr: &ClassPtr) {
+        for method in &class_ptr.methods {
+            let identifier = format!("{}.{}{}", class_name, method.name, method.descriptor);
+            let reference = MethodReference::new(Rc::clone(method), Rc::clone(&class_ptr));
+            self.resolved_methods.insert(identifier, reference);
+        }
     }
 
     pub fn get(&self, class_name: &str) -> Option<&ClassPtr> {

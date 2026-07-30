@@ -1,5 +1,6 @@
 use crate::loader::class_loader::class_loader::load;
 use crate::loader::java_class::java_class::{ConstantPoolPFieldInfo, JavaClassPtr};
+use crate::vm::class::Class;
 use crate::vm::errors::errors::RunTimeError;
 use crate::vm::method_area::{MethodArea, MethodAreaPtr};
 use crate::vm::thread::thread::Thread;
@@ -15,7 +16,7 @@ pub struct Runtime {
 impl Runtime {
     pub fn init(java_class: JavaClassPtr) -> Self {
         let mut ma = MethodArea::new();
-        let class = Rc::new(crate::vm::class::Class::init(&java_class));
+        let class = Rc::new(Class::init(&java_class));
 
         // try to resolve the class name from constant pool
         let name = java_class
