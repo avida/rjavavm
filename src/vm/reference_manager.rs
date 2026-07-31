@@ -14,8 +14,8 @@ pub struct ReferenceManager {
 
 #[derive(Debug, Clone)]
 pub enum ReferenceEntry {
-    Heap(usize),          // maps to a heap-internal id (index or pointer)
-    Symbolic(String),     // unresolved field/method identifier
+    Heap(usize),      // maps to a heap-internal id (index or pointer)
+    Symbolic(String), // unresolved field/method identifier
 }
 
 impl ReferenceManager {

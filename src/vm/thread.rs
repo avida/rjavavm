@@ -8,6 +8,7 @@ pub mod thread {
 
     use crate::vm::class::MethodReference;
     use crate::vm::method_area::{MethodArea, MethodAreaPtr};
+    use crate::vm::reference_manager::ReferenceManagerPtr;
     use crate::vm::stack::stack::StackFramePtr;
     use crate::vm::{
         class::ClassPtr,
@@ -21,7 +22,7 @@ pub mod thread {
         stack: Stack,
         current_frame: Option<StackFramePtr>,
         method_area: MethodAreaPtr,
-        reference_manager: crate::vm::reference_manager::ReferenceManagerPtr,
+        reference_manager: ReferenceManagerPtr,
     }
     macro_rules! set_current_frame {
         ($self:ident) => {{
@@ -246,7 +247,10 @@ pub mod thread {
                         _ => false,
                     };
 
-                    println!("Executing {op}, v1={} v2={} take_branch={}", v1, v2, take_branch);
+                    println!(
+                        "Executing {op}, v1={} v2={} take_branch={}",
+                        v1, v2, take_branch
+                    );
                     if take_branch {
                         let target = (op.index as isize) + offset;
                         let new_pc = target - ((1 + arg_len) as isize);
@@ -378,7 +382,6 @@ pub mod thread {
                                 )))?;
                             println!("Field ref identifier: {identifier}");
 
-
                             // ensure class entries are registered in MethodArea
                             let class_name = crate::class_name_from_identifier!(identifier)
                                 .ok_or(RunTimeError::Other(format!(
@@ -404,7 +407,10 @@ pub mod thread {
                                 let mut cf = self.current_frame.as_ref().unwrap().borrow_mut();
                                 cf.operand_stack.push(ref_u32 as i32);
                             } else {
-                                return Err(RunTimeError::Other(format!("Field {} not found", identifier)));
+                                return Err(RunTimeError::Other(format!(
+                                    "Field {} not found",
+                                    identifier
+                                )));
                             }
                         }
                         _ => return Err(RunTimeError::Other("Unexpected tag".to_string())),
@@ -429,7 +435,10 @@ pub mod thread {
             self.stack.push_frame(frame.clone());
             Ok(())
         }
-        pub fn new(ma: &MethodAreaPtr, rm: &crate::vm::reference_manager::ReferenceManagerPtr) -> Self {
+        pub fn new(
+            ma: &MethodAreaPtr,
+            rm: &crate::vm::reference_manager::ReferenceManagerPtr,
+        ) -> Self {
             Self {
                 pc: 0,
                 stack: Stack::new(),

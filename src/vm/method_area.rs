@@ -1,7 +1,7 @@
 use crate::loader::class_loader::class_loader::load;
 use crate::loader::java_class::java_class::{ConstantPoolPFieldInfo, JavaClassPtr};
 use crate::loader::utils::utils::lookup_class_file;
-use crate::vm::class::{Class, ClassPtr, MethodReference, FieldReference};
+use crate::vm::class::{Class, ClassPtr, FieldReference, MethodReference};
 use crate::vm::errors::errors::RunTimeError;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -136,11 +136,9 @@ impl MethodArea {
             return Ok(r.clone());
         }
 
-        let class_name = crate::class_name_from_identifier!(identifier)
-            .ok_or(RunTimeError::Other(format!(
-                "Invalid method identifier: {}",
-                identifier
-            )))?;
+        let class_name = crate::class_name_from_identifier!(identifier).ok_or(
+            RunTimeError::Other(format!("Invalid method identifier: {}", identifier)),
+        )?;
 
         let class_ptr = if let Some(c) = self.class_constant_pool_map.get(class_name) {
             c.clone()
@@ -217,7 +215,10 @@ mod tests {
 
     #[test]
     fn parse_empty_params() {
-        assert_eq!(MethodArea::parse_params("java/lang/Foo.bar()V"), Vec::<String>::new());
+        assert_eq!(
+            MethodArea::parse_params("java/lang/Foo.bar()V"),
+            Vec::<String>::new()
+        );
     }
 
     #[test]
@@ -242,12 +243,7 @@ mod tests {
     fn parse_complex_descriptor() {
         let sig = "java/lang/Integer.valueOf(I)Ljava/lang/Integer;";
         let v = MethodArea::parse_params(sig);
-        assert_eq!(
-            v,
-            vec![
-                "I".to_string()
-            ]
-        );
+        assert_eq!(v, vec!["I".to_string()]);
     }
 
     #[test]
@@ -257,10 +253,7 @@ mod tests {
                 "com/example/Foo.bar([Ljava/lang/String;I)V",
                 vec!["[Ljava/lang/String;".to_string(), "I".to_string()],
             ),
-            (
-                "a/b/C.m()V",
-                vec![],
-            ),
+            ("a/b/C.m()V", vec![]),
             (
                 "pkg/Cls.method(IJFDLjava/lang/String;[[I)[I",
                 vec![

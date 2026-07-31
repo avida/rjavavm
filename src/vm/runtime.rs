@@ -1,12 +1,12 @@
 use crate::vm::class::{Class, ClassPtr, MethodReference};
 use crate::vm::errors::errors::RunTimeError;
 use crate::vm::method_area::{MethodArea, MethodAreaPtr};
+use crate::vm::reference_manager::ReferenceManager;
 use crate::vm::thread::thread::Thread;
 use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use crate::vm::reference_manager::ReferenceManager;
 
 pub struct Runtime {
     method_area: MethodAreaPtr,
