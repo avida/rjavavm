@@ -1,4 +1,5 @@
 pub mod errors {
+    use crate::loader::errors::errors::ClassLoadError;
     use std::error::Error;
     use std::fmt;
     #[derive(Debug)]
@@ -22,5 +23,12 @@ pub mod errors {
             }
         }
     }
+
+    impl From<ClassLoadError> for RunTimeError {
+        fn from(value: ClassLoadError) -> Self {
+            RunTimeError::ClassLoadError(value.to_string())
+        }
+    }
+
     impl Error for RunTimeError {}
 }

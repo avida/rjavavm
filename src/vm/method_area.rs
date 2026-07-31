@@ -50,22 +50,18 @@ impl MethodArea {
 
     pub fn load_class(&mut self, class_path: &str) -> Result<ClassPtr, RunTimeError> {
         if let Some(path) = lookup_class_file(class_path) {
-            load(path.to_str().unwrap())
-                .map(|jc| self.init_class(jc))
-                .map_err(|_| {
-                    RunTimeError::ClassLoadError(format!(
-                        "Failed to load class file for {} at {}",
-                        class_path,
-                        path.display()
-                    ))
-                })
-        } else {
-            load(class_path).map(|jc| self.init_class(jc)).map_err(|_| {
+            let path_str = path.to_str().ok_or_else(|| {
                 RunTimeError::ClassLoadError(format!(
-                    "Failed to load class from path {}",
-                    class_path
+                    "Class path is not valid UTF-8: {}",
+                    path.display()
                 ))
-            })
+            })?;
+
+            let java_class = load(path_str).map_err(RunTimeError::from)?;
+            Ok(self.init_class(java_class))
+        } else {
+            let java_class = load(class_path).map_err(RunTimeError::from)?;
+            Ok(self.init_class(java_class))
         }
     }
 

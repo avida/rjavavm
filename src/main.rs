@@ -8,6 +8,7 @@ use crate::loader::utils::utils::lookup_class_file;
 use crate::vm::runtime::Runtime;
 use crate::{loader::class_loader::class_loader::load, vm::errors::errors::RunTimeError};
 use clap::{CommandFactory, Parser};
+use std::path::Path;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -19,14 +20,26 @@ struct Cli {
     /// Run a class by its fully-qualified name (e.g. com.example.Main)
     #[arg(short = 'r', long = "run", value_name = "CLASS")]
     run: Option<String>,
+
+    /// Print debug messages while executing bytecode operations
+    #[arg(long = "trace-ops")]
+    trace_ops: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     if let Some(path) = cli.print {
-        if let Some(file_path) = lookup_class_file(path.to_str().unwrap()) {
-            match load(file_path.to_str().unwrap()) {
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| RunTimeError::Other(format!("Invalid UTF-8 path: {}", path.display())))?;
+
+        if let Some(file_path) = lookup_class_file(path_str) {
+            let file_path_str = file_path.to_str().ok_or_else(|| {
+                RunTimeError::Other(format!("Invalid UTF-8 class path: {}", file_path.display()))
+            })?;
+
+            match load(file_path_str) {
                 Ok(jc) => println!("{}", jc),
                 Err(e) => {
                     eprintln!("Error loading class: {}", e);
@@ -34,12 +47,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         } else {
-            eprintln!("Cannot find class  {}", path.to_str().unwrap());
+            eprintln!("Cannot find class {}", Path::new(path_str).display());
         }
     } else if let Some(class_name) = cli.run {
         // Load/init runtime with a fully-qualified class name; Runtime will
         // resolve the .class file via `lookup_class_file` internally.
-        match Runtime::load_and_init() {
+        match Runtime::load_and_init(cli.trace_ops) {
             Some(mut runtime) => match runtime.run(&class_name) {
                 Ok(()) => println!("Execution finished successfully"),
                 Err(e) => {

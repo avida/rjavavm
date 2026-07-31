@@ -14,23 +14,26 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn init() -> Self {
+    pub fn init(trace_ops: bool) -> Self {
         let mut ma = MethodArea::new();
         let rm = ReferenceManager::new_ptr();
 
         Runtime {
             method_area: ma.clone(),
-            main_thread: Thread::new(&ma, &rm),
+            main_thread: Thread::new(&ma, &rm, trace_ops),
         }
     }
 
     pub fn load_class(&mut self, class_path: &str) -> Result<ClassPtr, RunTimeError> {
-        self.method_area.lock().unwrap().load_class(class_path)
+        self.method_area
+            .lock()
+            .map_err(|_| RunTimeError::Other("Method area lock poisoned".to_string()))?
+            .load_class(class_path)
     }
     fn get_or_load_class(&mut self, class_path: &str) -> Result<ClassPtr, RunTimeError> {
         self.method_area
             .lock()
-            .unwrap()
+            .map_err(|_| RunTimeError::Other("Method area lock poisoned".to_string()))?
             .get_or_load_class(class_path)
     }
 
@@ -57,8 +60,8 @@ impl Runtime {
         Ok(())
     }
 
-    pub fn load_and_init() -> Option<Self> {
-        let mut rt = Self::init();
+    pub fn load_and_init(trace_ops: bool) -> Option<Self> {
+        let mut rt = Self::init(trace_ops);
         return Some(rt);
     }
 }
