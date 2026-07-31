@@ -13,6 +13,7 @@ pub mod types {
         Reference,
         ReturnAddress,
     }
+    #[derive(Debug, Clone, PartialEq)]
     pub enum Type {
         Bool(bool),
         Byte(u8),
@@ -23,6 +24,7 @@ pub mod types {
         Float(f32),
         Double(f64),
         Reference(u32),
+        Null,
         ReturnAddress(u32),
     }
 }
