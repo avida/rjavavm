@@ -6,6 +6,7 @@ use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+use crate::vm::reference_manager::ReferenceManager;
 
 pub struct Runtime {
     method_area: MethodAreaPtr,
@@ -15,10 +16,11 @@ pub struct Runtime {
 impl Runtime {
     pub fn init() -> Self {
         let mut ma = MethodArea::new();
+        let rm = ReferenceManager::new_ptr();
 
         Runtime {
             method_area: ma.clone(),
-            main_thread: Thread::new(&ma),
+            main_thread: Thread::new(&ma, &rm),
         }
     }
 

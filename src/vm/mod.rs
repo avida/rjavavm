@@ -10,5 +10,6 @@ pub mod runtime;
 pub mod stack;
 pub mod thread;
 pub mod types;
+pub mod reference_manager;
 
 pub use access_flags::AccessFlags;

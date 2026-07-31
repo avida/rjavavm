@@ -1,7 +1,7 @@
 use crate::loader::class_loader::class_loader::load;
 use crate::loader::java_class::java_class::{ConstantPoolPFieldInfo, JavaClassPtr};
 use crate::loader::utils::utils::lookup_class_file;
-use crate::vm::class::{Class, ClassPtr, MethodReference};
+use crate::vm::class::{Class, ClassPtr, MethodReference, FieldReference};
 use crate::vm::errors::errors::RunTimeError;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -11,6 +11,7 @@ pub type MethodAreaPtr = Arc<Mutex<MethodArea>>;
 pub struct MethodArea {
     pub class_constant_pool_map: HashMap<String, ClassPtr>,
     pub resolved_methods: HashMap<String, MethodReference>,
+    pub resolved_fields: HashMap<String, FieldReference>,
 }
 
 impl MethodArea {
@@ -18,6 +19,7 @@ impl MethodArea {
         Arc::new(Mutex::new(MethodArea {
             class_constant_pool_map: HashMap::new(),
             resolved_methods: HashMap::new(),
+            resolved_fields: HashMap::new(),
         }))
     }
 
@@ -171,12 +173,25 @@ impl MethodArea {
         self.resolved_methods.insert(identifier, reference);
     }
 
+    pub fn insert_resolved_field(&mut self, identifier: String, reference: FieldReference) {
+        self.resolved_fields.insert(identifier, reference);
+    }
+
     pub fn insert_resolved_for_class(&mut self, class_name: &String, class_ptr: &ClassPtr) {
         for method in &class_ptr.methods {
             let identifier = format!("{}.{}{}", class_name, method.name, method.descriptor);
             let reference = MethodReference::new(Rc::clone(method), Rc::clone(&class_ptr));
             self.resolved_methods.insert(identifier, reference);
         }
+        for field in &class_ptr.fields {
+            let identifier = format!("{}.{}{}", class_name, field.name, field.descriptor);
+            let reference = FieldReference::new(Rc::clone(field), Rc::clone(&class_ptr));
+            self.resolved_fields.insert(identifier, reference);
+        }
+    }
+
+    pub fn get_resolved_field(&self, identifier: &str) -> Option<&FieldReference> {
+        self.resolved_fields.get(identifier)
     }
 
     pub fn get(&self, class_name: &str) -> Option<&ClassPtr> {

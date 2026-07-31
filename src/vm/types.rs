@@ -1,6 +1,5 @@
 pub mod types {
     pub type VarSlot = [u8; 4];
-    pub struct Reference {}
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum SlotType {
         Bool,
@@ -23,7 +22,7 @@ pub mod types {
         Long(u64),
         Float(f32),
         Double(f64),
-        Reference(Reference),
+        Reference(u32),
         ReturnAddress(u32),
     }
 }

@@ -21,6 +21,7 @@ pub mod thread {
         stack: Stack,
         current_frame: Option<StackFramePtr>,
         method_area: MethodAreaPtr,
+        reference_manager: crate::vm::reference_manager::ReferenceManagerPtr,
     }
     macro_rules! set_current_frame {
         ($self:ident) => {{
@@ -297,6 +298,7 @@ pub mod thread {
                 }
                 Instruction::Iload => {
                     let idx = op.args[0] as u16;
+                    println!("Executing {op} {}", idx);
                     let val: i32 = self
                         .current_frame
                         .as_ref()
@@ -309,7 +311,6 @@ pub mod thread {
                         .borrow_mut()
                         .operand_stack
                         .push(val);
-                    println!("Executing {op} {}", idx);
                 }
                 Instruction::Iload0
                 | Instruction::Iload1
@@ -361,6 +362,55 @@ pub mod thread {
                 Instruction::Getstatic => {
                     let param = bytes_to_short!(op.args);
                     println!("Executing {op}, {param}");
+                    let frame_ref = self.current_frame.as_ref().unwrap().borrow();
+                    let const_pool = &frame_ref.class.constant_pool;
+                    let index = param as u16;
+
+                    use crate::loader::java_class::java_class::ConstantPoolTag;
+
+                    match const_pool.as_ref()[index as usize - 1].tag {
+                        ConstantPoolTag::Fieldref => {
+                            // resolve identifier from constant pool
+                            let identifier = frame_ref
+                                .class
+                                .resolve_ref_to_identifier(index)
+                                .ok_or(RunTimeError::ResolveMethodError(format!(
+                                    "Failed to resolve constant pool ref {}",
+                                    index
+                                )))?;
+
+                            // ensure class entries are registered in MethodArea
+                            let class_name = identifier
+                                .rfind('.')
+                                .map(|pos| &identifier[..pos])
+                                .ok_or(RunTimeError::Other(format!(
+                                    "Invalid field identifier {}",
+                                    identifier
+                                )))?
+                                .to_string();
+
+                            let mut ma = self.method_area.lock().unwrap();
+                            let class_ptr = ma.get_or_load_class(&class_name)?;
+                            // populate resolved fields for that class
+                            if ma.get_resolved_field(&identifier).is_none() {
+                                ma.insert_resolved_for_class(&class_name, &class_ptr);
+                            }
+
+                            if let Some(_field_ref) = ma.get_resolved_field(&identifier) {
+                                // allocate a reference for this field and push to operand stack
+                                let mut rm = self.reference_manager.lock().unwrap();
+                                let ref_u32 = rm.allocate_symbolic(identifier.clone());
+                                drop(rm);
+                                // push reference as i32 slot
+                                drop(frame_ref);
+                                let mut cf = self.current_frame.as_ref().unwrap().borrow_mut();
+                                cf.operand_stack.push(ref_u32 as i32);
+                            } else {
+                                return Err(RunTimeError::Other(format!("Field {} not found", identifier)));
+                            }
+                        }
+                        _ => return Err(RunTimeError::Other("Unexpected tag".to_string())),
+                    }
                 }
                 _ => {
                     return Err(RunTimeError::Notimplemented(format!(
@@ -369,6 +419,11 @@ pub mod thread {
                     )));
                 }
             }
+            let size = match &self.current_frame {
+                Some(cf) => cf.borrow().operand_stack.len(),
+                None => 0,
+            };
+            println!("Stack size: {}", size);
             Ok(None)
         }
         pub fn invoke(&mut self, method_ref: MethodReference) -> Result<(), RunTimeError> {
@@ -376,12 +431,13 @@ pub mod thread {
             self.stack.push_frame(frame.clone());
             Ok(())
         }
-        pub fn new(ma: &MethodAreaPtr) -> Self {
+        pub fn new(ma: &MethodAreaPtr, rm: &crate::vm::reference_manager::ReferenceManagerPtr) -> Self {
             Self {
                 pc: 0,
                 stack: Stack::new(),
                 current_frame: None,
                 method_area: ma.clone(),
+                reference_manager: rm.clone(),
             }
         }
     }
