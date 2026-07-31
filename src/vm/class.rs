@@ -129,14 +129,28 @@ impl Class {
         }
     }
 
-    pub fn resolve_ref_to_identifier(&self, index: u16) -> Option<String> {
+    /// Resolve a method (or interface) ref from constant pool to identifier
+    /// format: `className.methodName(descriptor)`
+    pub fn resolve_method_ref_to_identifier(&self, index: u16) -> Option<String> {
         match &self.cp_get(index)?.info {
             ConstantPoolPFieldInfo::MethodRef(r)
-            | ConstantPoolPFieldInfo::InterfaceMethodRef(r)
-            | ConstantPoolPFieldInfo::FieldRef(r) => {
+            | ConstantPoolPFieldInfo::InterfaceMethodRef(r) => {
                 let class_name = self.get_class_name(r.class_index)?;
                 let (name, desc) = self.get_name_and_type(r.name_and_type_index)?;
                 Some(format!("{}.{}{}", class_name, name, desc))
+            }
+            _ => None,
+        }
+    }
+
+    /// Resolve a field ref from constant pool to identifier
+    /// format: `className.fieldName:descriptor`
+    pub fn resolve_field_ref_to_identifier(&self, index: u16) -> Option<String> {
+        match &self.cp_get(index)?.info {
+            ConstantPoolPFieldInfo::FieldRef(r) => {
+                let class_name = self.get_class_name(r.class_index)?;
+                let (name, desc) = self.get_name_and_type(r.name_and_type_index)?;
+                Some(format!("{}.{}:{}", class_name, name, desc))
             }
             _ => None,
         }

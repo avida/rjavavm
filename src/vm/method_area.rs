@@ -136,11 +136,11 @@ impl MethodArea {
             return Ok(r.clone());
         }
 
-        let pos = identifier.rfind('.').ok_or(RunTimeError::Other(format!(
-            "Invalid method identifier: {}",
-            identifier
-        )))?;
-        let class_name = &identifier[..pos];
+        let class_name = crate::class_name_from_identifier!(identifier)
+            .ok_or(RunTimeError::Other(format!(
+                "Invalid method identifier: {}",
+                identifier
+            )))?;
 
         let class_ptr = if let Some(c) = self.class_constant_pool_map.get(class_name) {
             c.clone()
@@ -184,7 +184,7 @@ impl MethodArea {
             self.resolved_methods.insert(identifier, reference);
         }
         for field in &class_ptr.fields {
-            let identifier = format!("{}.{}{}", class_name, field.name, field.descriptor);
+            let identifier = format!("{}.{}:{}", class_name, field.name, field.descriptor);
             let reference = FieldReference::new(Rc::clone(field), Rc::clone(&class_ptr));
             self.resolved_fields.insert(identifier, reference);
         }

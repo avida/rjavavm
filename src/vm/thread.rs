@@ -182,12 +182,12 @@ pub mod thread {
                                 // already resolved on class
                             } else {
                                 println!("Method at {index} not resolved");
-                                let identifier = class.resolve_ref_to_identifier(index).ok_or(
-                                    RunTimeError::ResolveMethodError(format!(
+                                let identifier = class
+                                    .resolve_method_ref_to_identifier(index)
+                                    .ok_or(RunTimeError::ResolveMethodError(format!(
                                         "Failed to resolve constant pool ref {}",
                                         index
-                                    )),
-                                )?;
+                                    )))?;
                                 println!("Resolved identifier: {identifier}");
 
                                 let mut ma = self.method_area.lock().unwrap();
@@ -366,23 +366,21 @@ pub mod thread {
                     let const_pool = &frame_ref.class.constant_pool;
                     let index = param as u16;
 
-                    use crate::loader::java_class::java_class::ConstantPoolTag;
-
                     match const_pool.as_ref()[index as usize - 1].tag {
                         ConstantPoolTag::Fieldref => {
                             // resolve identifier from constant pool
                             let identifier = frame_ref
                                 .class
-                                .resolve_ref_to_identifier(index)
+                                .resolve_field_ref_to_identifier(index)
                                 .ok_or(RunTimeError::ResolveMethodError(format!(
                                     "Failed to resolve constant pool ref {}",
                                     index
                                 )))?;
+                            println!("Field ref identifier: {identifier}");
+
 
                             // ensure class entries are registered in MethodArea
-                            let class_name = identifier
-                                .rfind('.')
-                                .map(|pos| &identifier[..pos])
+                            let class_name = crate::class_name_from_identifier!(identifier)
                                 .ok_or(RunTimeError::Other(format!(
                                     "Invalid field identifier {}",
                                     identifier
