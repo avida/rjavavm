@@ -37,6 +37,16 @@ pub mod thread {
             (class, method)
         }};
     }
+    macro_rules! pop_current_frame_operand {
+        ($frame:expr, $ty:ty) => {{
+            let value: $ty = $frame
+                .borrow_mut()
+                .operand_stack
+                .pop()
+                .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+            value
+        }};
+    }
     enum RunResult {
         Invoke(MethodReference),
         Return,
@@ -257,6 +267,10 @@ pub mod thread {
                     let param = bytes_to_short!(op.args);
                     self.trace(format!("Executing {op}, {param}"));
                 }
+                Instruction::New => {
+                    let param = bytes_to_short!(op.args);
+                    self.trace(format!("Executing {op}, {param}"));
+                }
                 Instruction::IfIcmpeq
                 | Instruction::IfIcmpne
                 | Instruction::IfIcmplt
@@ -267,18 +281,9 @@ pub mod thread {
                     let offset = bytes_to_short!(op.args) as isize;
                     let arg_len = op.args.len();
 
-                    let v2: i32 = self
-                        .current_frame()?
-                        .borrow_mut()
-                        .operand_stack
-                        .pop()
-                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
-                    let v1: i32 = self
-                        .current_frame()?
-                        .borrow_mut()
-                        .operand_stack
-                        .pop()
-                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                    let current_frame = self.current_frame()?;
+                    let v2: i32 = pop_current_frame_operand!(current_frame, i32);
+                    let v1: i32 = pop_current_frame_operand!(current_frame, i32);
 
                     let take_branch = match op.instruction {
                         Instruction::IfIcmpeq => v1 == v2,
@@ -294,8 +299,7 @@ pub mod thread {
                     ));
                     if take_branch {
                         let target = (op.index as isize) + offset;
-                        let new_pc = target - ((1 + arg_len) as isize);
-                        return Ok(Some(RunResult::Jump(new_pc as u32)));
+                        return Ok(Some(RunResult::Jump(target as u32)));
                     }
                 }
                 Instruction::IfEq
@@ -307,12 +311,8 @@ pub mod thread {
                     let offset = bytes_to_short!(op.args) as isize;
                     let arg_len = op.args.len();
 
-                    let v: i32 = self
-                        .current_frame()?
-                        .borrow_mut()
-                        .operand_stack
-                        .pop()
-                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                    let current_frame = self.current_frame()?;
+                    let v: i32 = pop_current_frame_operand!(current_frame, i32);
 
                     let take_branch = match op.instruction {
                         Instruction::IfEq => v == 0,
@@ -334,7 +334,21 @@ pub mod thread {
                     let param = bytes_to_short!(op.args);
                     self.trace(format!("Executing {op}, {param}"));
                 }
+                Instruction::Dup => {
+                    self.trace(format!("Executing {op}"));
+                    let current_frame = self.current_frame()?;
+                    current_frame
+                        .borrow_mut()
+                        .operand_stack
+                        .dup()
+                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                }
                 Instruction::Iadd => {
+                    let current_frame = self.current_frame()?;
+                    let rhs: i32 = pop_current_frame_operand!(current_frame, i32);
+                    let lhs: i32 = pop_current_frame_operand!(current_frame, i32);
+                    let result = lhs.wrapping_add(rhs);
+                    current_frame.borrow_mut().operand_stack.push(result);
                     self.trace(format!("Executing {op}"));
                 }
                 Instruction::Iload => {
@@ -370,12 +384,8 @@ pub mod thread {
                     return Ok(Some(RunResult::Return));
                 }
                 Instruction::Areturn => {
-                    let reference: i32 = self
-                        .current_frame()?
-                        .borrow_mut()
-                        .operand_stack
-                        .pop()
-                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                    let current_frame = self.current_frame()?;
+                    let reference: i32 = pop_current_frame_operand!(current_frame, i32);
                     self.trace(format!("Executing {op}, ref={reference}"));
                     return Ok(Some(RunResult::AReturn(reference as u32)));
                 }

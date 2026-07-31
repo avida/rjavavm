@@ -32,6 +32,13 @@ pub mod operand_stack {
             }
             res
         }
+        pub fn dup(&mut self) -> Option<()> {
+            let slot = *self.stack.last()?;
+            let slot_type = self.types.last()?.clone();
+            self.stack.push(slot);
+            self.types.push(slot_type);
+            Some(())
+        }
         pub fn len(&self) -> usize {
             self.stack.len()
         }
@@ -208,6 +215,19 @@ mod tests {
         assert_eq!(v, n);
         let v2: i64 = s.pop().unwrap();
         assert_eq!(v2, 0);
+    }
+
+    #[test]
+    fn dup_top_slot() {
+        let mut s = OperandStack::new(8);
+        s.push(123i32);
+
+        s.dup().unwrap();
+
+        let v1: i32 = s.pop().unwrap();
+        let v2: i32 = s.pop().unwrap();
+        assert_eq!(v1, 123);
+        assert_eq!(v2, 123);
     }
 
     #[test]

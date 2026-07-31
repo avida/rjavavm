@@ -46,6 +46,7 @@ pub mod byte_code {
         Iconst3 = 0x06,
         Iconst4 = 0x07,
         Iconst5 = 0x08,
+        Dup = 0x59,
         Iadd = 0x60,
         Isub = 0x64,
         Pop = 0x57,
@@ -61,6 +62,7 @@ pub mod byte_code {
         Invokespecial = 0xb7,
         Invokestatic = 0xb8,
         Invokedynamic = 0xba,
+        New = 0xbb,
         IfIcmpge = 0xa2,
         IfIcmpgt = 0xa3,
         IfIcmple = 0xa4,
@@ -103,6 +105,7 @@ pub mod byte_code {
             0xa1 => (Instruction::IfIcmplt, 2),
             0x10 => (Instruction::Bipush, 1),
             0x15 => (Instruction::Iload, 1),
+            0x59 => (Instruction::Dup, 0),
             0x60 => (Instruction::Iadd, 0),
             0x64 => (Instruction::Isub, 0),
             0x57 => (Instruction::Pop, 0),
@@ -136,6 +139,7 @@ pub mod byte_code {
             0xb7 => (Instruction::Invokespecial, 2),
             0xb8 => (Instruction::Invokestatic, 2),
             0xba => (Instruction::Invokedynamic, 4),
+            0xbb => (Instruction::New, 2),
             0xa2 => (Instruction::IfIcmpge, 2),
             0xa3 => (Instruction::IfIcmpgt, 2),
             0xa4 => (Instruction::IfIcmple, 2),
@@ -199,6 +203,7 @@ pub mod byte_code {
                 Instruction::Iload1 => write!(f, "iload_1"),
                 Instruction::Iload2 => write!(f, "iload_2"),
                 Instruction::Iload3 => write!(f, "iload_3"),
+                Instruction::Dup => write!(f, "dup"),
                 Instruction::Iadd => write!(f, "iadd"),
                 Instruction::Isub => write!(f, "isub"),
                 Instruction::Pop => write!(f, "pop"),
@@ -222,6 +227,7 @@ pub mod byte_code {
                 Instruction::Invokespecial => write!(f, "invokespecial"),
                 Instruction::Invokestatic => write!(f, "invokestatic"),
                 Instruction::Invokedynamic => write!(f, "invokedynamic"),
+                Instruction::New => write!(f, "new"),
                 Instruction::IfIcmpge => write!(f, "if_icmpge"),
                 Instruction::IfIcmpgt => write!(f, "if_icmpgt"),
                 Instruction::IfIcmple => write!(f, "if_icmple"),
@@ -275,17 +281,20 @@ pub mod byte_code {
                 _ => panic!("expected bipush"),
             }
         }
+        #[test]
         fn test_parse_iadd_and_pop() {
             let bytes: &[u8] = &[
                 0x03, // iconst_0
                 0x04, // iconst_1
+                0x59, // dup
                 0x60, // iadd
                 0x57, // pop
             ];
             let ops = parse(bytes).unwrap();
-            assert_eq!(ops.len(), 4);
-            assert!(matches!(ops[2].instruction, Instruction::Iadd));
-            assert!(matches!(ops[3].instruction, Instruction::Pop));
+            assert_eq!(ops.len(), 5);
+            assert!(matches!(ops[2].instruction, Instruction::Dup));
+            assert!(matches!(ops[3].instruction, Instruction::Iadd));
+            assert!(matches!(ops[4].instruction, Instruction::Pop));
         }
 
         #[test]
@@ -373,6 +382,21 @@ pub mod byte_code {
             match ops[1].instruction {
                 Instruction::Invokevirtual => assert_eq!(ops[1].args, &[0x00u8, 0x02u8]),
                 _ => panic!("expected invokevirtual"),
+            }
+        }
+
+        #[test]
+        fn test_parse_new() {
+            let bytes: &[u8] = &[
+                0xbb, 0x00, 0x07, // new #7
+            ];
+
+            let ops = parse(bytes).unwrap();
+            assert_eq!(ops.len(), 1);
+
+            match ops[0].instruction {
+                Instruction::New => assert_eq!(ops[0].args, &[0x00u8, 0x07u8]),
+                _ => panic!("expected new"),
             }
         }
 
