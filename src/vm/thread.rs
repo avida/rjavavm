@@ -101,10 +101,14 @@ pub mod thread {
                         self.stack.set_pc(target as usize);
                         continue;
                     }
-                    Ok(Some(RunResult::AReturn(_))) => {
-                        return Err(RunTimeError::Notimplemented(
-                            "Object returns are not implemented".to_string(),
-                        ));
+                    Ok(Some(RunResult::AReturn(reference))) => {
+                        if self.finish_current_frame()? {
+                            let current_frame = self.current_frame()?;
+                            current_frame.borrow_mut().operand_stack.push(reference as i32);
+                            (class, method) = set_current_frame!(self);
+                            continue;
+                        }
+                        break;
                     }
                     Ok(None) => {}
                     Err(e) => return Err(e),
@@ -291,7 +295,7 @@ pub mod thread {
                     if take_branch {
                         let target = (op.index as isize) + offset;
                         let new_pc = target - ((1 + arg_len) as isize);
-                        self.stack.set_pc(new_pc as usize);
+                        return Ok(Some(RunResult::Jump(new_pc as u32)));
                     }
                 }
                 Instruction::IfEq
@@ -351,12 +355,36 @@ pub mod thread {
                     current_frame.borrow_mut().operand_stack.push(val);
                     self.trace(format!("Executing {op} {idx}"));
                 }
+                Instruction::Aload => {
+                    let idx = op.args[0] as u16;
+                    self.trace(format!("Executing {op} {idx}"));
+                }
+                Instruction::Aaload => {
+                    self.trace(format!("Executing {op}"));
+                }
                 Instruction::Pop => {
                     self.trace(format!("Executing {op}"));
                 }
                 Instruction::Return => {
                     self.trace(format!("Executing {op}"));
                     return Ok(Some(RunResult::Return));
+                }
+                Instruction::Areturn => {
+                    let reference: i32 = self
+                        .current_frame()?
+                        .borrow_mut()
+                        .operand_stack
+                        .pop()
+                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                    self.trace(format!("Executing {op}, ref={reference}"));
+                    return Ok(Some(RunResult::AReturn(reference as u32)));
+                }
+                Instruction::Astore => {
+                    let idx = op.args[0] as u16;
+                    self.trace(format!("Executing {op} {idx}"));
+                }
+                Instruction::Aastore => {
+                    self.trace(format!("Executing {op}"));
                 }
                 Instruction::Astore0
                 | Instruction::Astore1

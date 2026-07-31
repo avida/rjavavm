@@ -33,6 +33,7 @@ pub mod byte_code {
         Aload1 = 0x2b,
         Aload2 = 0x2c,
         Aload3 = 0x2d,
+        Aaload = 0x32,
         Iload = 0x15,
         Iload0 = 0x1a,
         Iload1 = 0x1b,
@@ -49,6 +50,7 @@ pub mod byte_code {
         Isub = 0x64,
         Pop = 0x57,
         Astore = 0x3a,
+        Aastore = 0x53,
         Astore0 = 0x4b,
         Astore1 = 0x4c,
         Astore2 = 0x4d,
@@ -68,6 +70,7 @@ pub mod byte_code {
         IfGe = 0x9c,
         IfGt = 0x9d,
         IfLe = 0x9e,
+        Areturn = 0xb0,
         Return = 0xb1,
     }
 
@@ -111,20 +114,22 @@ pub mod byte_code {
             0x07 => (Instruction::Iconst4, 0),
             0x08 => (Instruction::Iconst5, 0),
             0x12 => (Instruction::Ldc, 1),
-            0x19 => (Instruction::Iload, 1),
             0x1a => (Instruction::Iload0, 0),
             0x1b => (Instruction::Iload1, 0),
             0x1c => (Instruction::Iload2, 0),
             0x1d => (Instruction::Iload3, 0),
+            0x19 => (Instruction::Aload, 1),
             0x2a => (Instruction::Aload0, 0),
             0x2b => (Instruction::Aload1, 0),
             0x2c => (Instruction::Aload2, 0),
             0x2d => (Instruction::Aload3, 0),
+            0x32 => (Instruction::Aaload, 0),
             0x3a => (Instruction::Astore, 1),
             0x4b => (Instruction::Astore0, 0),
             0x4c => (Instruction::Astore1, 0),
             0x4d => (Instruction::Astore2, 0),
             0x4e => (Instruction::Astore3, 0),
+            0x53 => (Instruction::Aastore, 0),
             0xb2 => (Instruction::Getstatic, 2),
             0xb6 => (Instruction::Invokevirtual, 2),
             0xb3 => (Instruction::Putstatic, 2),
@@ -134,6 +139,7 @@ pub mod byte_code {
             0xa2 => (Instruction::IfIcmpge, 2),
             0xa3 => (Instruction::IfIcmpgt, 2),
             0xa4 => (Instruction::IfIcmple, 2),
+            0xb0 => (Instruction::Areturn, 0),
             0xb1 => (Instruction::Return, 0),
             _ => {
                 return Err(RunTimeError::Other(format!(
@@ -209,6 +215,7 @@ pub mod byte_code {
                 Instruction::Aload1 => write!(f, "aload_1"),
                 Instruction::Aload2 => write!(f, "aload_2"),
                 Instruction::Aload3 => write!(f, "aload_3"),
+                Instruction::Aaload => write!(f, "aaload"),
                 Instruction::Getstatic => write!(f, "getstatic"),
                 Instruction::Invokevirtual => write!(f, "invokevirtual"),
                 Instruction::Putstatic => write!(f, "putstatic"),
@@ -218,8 +225,10 @@ pub mod byte_code {
                 Instruction::IfIcmpge => write!(f, "if_icmpge"),
                 Instruction::IfIcmpgt => write!(f, "if_icmpgt"),
                 Instruction::IfIcmple => write!(f, "if_icmple"),
+                Instruction::Areturn => write!(f, "areturn"),
                 Instruction::Return => write!(f, "return"),
                 Instruction::Astore => write!(f, "astore"),
+                Instruction::Aastore => write!(f, "aastore"),
                 Instruction::Astore0 => write!(f, "astore_0"),
                 Instruction::Astore1 => write!(f, "astore_1"),
                 Instruction::Astore2 => write!(f, "astore_2"),
@@ -366,6 +375,64 @@ pub mod byte_code {
                 _ => panic!("expected invokevirtual"),
             }
         }
+
+        #[test]
+        fn test_parse_aload_and_astore() {
+            let bytes: &[u8] = &[
+                0x19, 0x04, // aload 4
+                0x3a, 0x02, // astore 2
+            ];
+
+            let ops = parse(bytes).unwrap();
+            assert_eq!(ops.len(), 2);
+
+            match ops[0].instruction {
+                Instruction::Aload => assert_eq!(ops[0].args, &[0x04u8]),
+                _ => panic!("expected aload"),
+            }
+
+            match ops[1].instruction {
+                Instruction::Astore => assert_eq!(ops[1].args, &[0x02u8]),
+                _ => panic!("expected astore"),
+            }
+        }
+
+        #[test]
+        fn test_parse_aaload_and_aastore() {
+            let bytes: &[u8] = &[
+                0x32, // aaload
+                0x53, // aastore
+            ];
+
+            let ops = parse(bytes).unwrap();
+            assert_eq!(ops.len(), 2);
+
+            match ops[0].instruction {
+                Instruction::Aaload => assert!(ops[0].args.is_empty()),
+                _ => panic!("expected aaload"),
+            }
+
+            match ops[1].instruction {
+                Instruction::Aastore => assert!(ops[1].args.is_empty()),
+                _ => panic!("expected aastore"),
+            }
+        }
+
+        #[test]
+        fn test_parse_areturn() {
+            let bytes: &[u8] = &[
+                0xb0, // areturn
+            ];
+
+            let ops = parse(bytes).unwrap();
+            assert_eq!(ops.len(), 1);
+
+            match ops[0].instruction {
+                Instruction::Areturn => assert!(ops[0].args.is_empty()),
+                _ => panic!("expected areturn"),
+            }
+        }
+
         #[test]
         fn test_hello_java() {
             let bytes = &[0xb2 as u8, 0x00, 0x07, 0x12, 0x0f, 0xb6, 0x00, 0x11, 0xb1];
