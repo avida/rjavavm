@@ -1,22 +1,32 @@
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_fields_and_methods() {
-        use crate::vm::method_area::MethodArea;
-        use crate::vm::thread::thread::Thread;
-        use crate::vm::reference_manager::ReferenceManager;
-        use crate::vm::class::MethodReference;
-        use std::rc::Rc;
-
-        // create a MethodArea and ReferenceManager then load the class
+    use crate::vm::class::ClassPtr;
+    use crate::vm::method_area::MethodArea;
+    use crate::vm::reference_manager::{ReferenceManager, ReferenceManagerPtr};
+    use crate::vm::thread::thread::Thread;
+    fn create_test_runtime(
+        class_path: &str,
+        trace: bool,
+    ) -> (ReferenceManagerPtr, ClassPtr, Thread) {
         let ma = MethodArea::new();
         let rm = ReferenceManager::new_ptr();
         let mut ma_guard = ma.lock().expect("MethodArea lock poisoned");
         let class = ma_guard
-            .load_class("test/MethodsAndFields.class")
-            .expect("Failed to load MethodsAndFields.class");
+            .load_class(class_path)
+            .expect(&format!("Failed to load {}", class_path));
+        let thread = Thread::new(&ma, &rm, trace);
+        drop(ma_guard);
+        (rm, class, thread)
+    }
+
+    #[test]
+    fn test_fields_and_methods() {
+        let _cfg_guard = crate::test_utils::EnvGuard::set_from_config("CLASSPATH");
+        use crate::vm::class::MethodReference;
+        use std::rc::Rc;
+
+        let (rm, class, mut thread) = create_test_runtime("test/MethodsAndFields.class", true);
 
         // verify fields were loaded (name, age, salary)
         assert!(class.fields.len() >= 3, "expected at least 3 fields");
@@ -27,7 +37,10 @@ mod tests {
             .iter()
             .find(|m| m.name == "createAndCalculateBonus")
             .cloned();
-        assert!(method_opt.is_some(), "method createAndCalculateBonus not found");
+        assert!(
+            method_opt.is_some(),
+            "method createAndCalculateBonus not found"
+        );
         let method = method_opt.unwrap();
         let method_ref = MethodReference::new(Rc::clone(&method), class.clone());
 
@@ -42,9 +55,6 @@ mod tests {
             }
             Err(e) => println!("failed to parse ops: {}", e),
         }
-
-        // create a Thread and push a frame with initialized locals (args)
-        let mut thread = Thread::new(&ma, &rm, true);
 
         // prepare locals: (String name, int age, double salary, double percentage)
         // for the object/string param we allocate a symbolic reference

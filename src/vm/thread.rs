@@ -281,6 +281,7 @@ pub mod thread {
                                 let mut ma = self.method_area.lock().map_err(|_| {
                                     RunTimeError::Other("Method area lock poisoned".to_string())
                                 })?;
+                                println!("unlock");
                                 match ma.resolve(&identifier) {
                                     Ok(method_ref) => {
                                         self.trace(format!("Resolved via MethodArea: {identifier}"));

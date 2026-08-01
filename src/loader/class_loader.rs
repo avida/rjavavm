@@ -13,7 +13,7 @@ pub mod class_loader {
     pub fn read(path: &str) -> Result<Vec<u8>, ClassLoadError> {
         fs::read(path)
             .and_then(|r| Ok(r))
-            .map_err(|_| ClassLoadError::NotFound("File not found".to_string()))
+            .map_err(|_| ClassLoadError::NotFound(format!("File not found: {}", path)))
     }
 
     pub fn parse(bytes: Vec<u8>) -> Result<JavaClassPtr, ClassLoadError> {
@@ -264,6 +264,9 @@ pub mod class_loader {
     }
 
     pub fn load(name: &str) -> Result<JavaClassPtr, ClassLoadError> {
+        println!( 
+            "{}", format!("Loading file {}", name)
+        );
         let data = read(name)?;
         parse(data)
     }

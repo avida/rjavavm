@@ -1,7 +1,10 @@
 pub mod utils {
     use std::env;
     use std::path::{Path, PathBuf};
+    use crate::vm::class;
+
     pub fn lookup_class_file(class_name: &str) -> Option<PathBuf> {
+        println!("lookup {}", class_name);
         // Normalize class name to path form (dots to slashes)
         let mut class_path = class_name.replace('.', "/");
         if !class_path.ends_with(".class") {
@@ -41,6 +44,9 @@ pub mod utils {
         use std::thread;
         use std::time::Duration;
 
+        // Use shared test fixture from crate::test_utils
+        use crate::test_utils::EnvGuard;
+
         fn mk_temp_dir(name: &str) -> PathBuf {
             let mut p = env::temp_dir();
             p.push(format!("rustest_test_{}_{}", name, std::process::id()));
@@ -51,6 +57,7 @@ pub mod utils {
 
         #[test]
         fn finds_in_classpath() {
+            let _cfg_guard = EnvGuard::set_from_config("CLASSPATH");
             let dir = mk_temp_dir("classpath");
             let class_rel = "com/example/Hello.class";
             let mut target = dir.clone();
@@ -79,6 +86,7 @@ pub mod utils {
 
         #[test]
         fn returns_none_when_missing() {
+            let _cfg_guard = EnvGuard::set_from_config("CLASSPATH");
             unsafe {
                 env::set_var("CLASSPATH", "/non/existent/path");
             }
