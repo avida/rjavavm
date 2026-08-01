@@ -52,6 +52,7 @@ pub mod thread {
         Return,
         Jump(u32),
         AReturn(u32),
+        DReturn(f64),
     }
 
     impl Thread {
@@ -115,6 +116,15 @@ pub mod thread {
                         if self.finish_current_frame()? {
                             let current_frame = self.current_frame()?;
                             current_frame.borrow_mut().operand_stack.push(reference as i32);
+                            (class, method) = set_current_frame!(self);
+                            continue;
+                        }
+                        break;
+                    }
+                    Ok(Some(RunResult::DReturn(value))) => {
+                        if self.finish_current_frame()? {
+                            let current_frame = self.current_frame()?;
+                            current_frame.borrow_mut().operand_stack.push(value);
                             (class, method) = set_current_frame!(self);
                             continue;
                         }
@@ -211,6 +221,28 @@ pub mod thread {
 
             Ok(())
         }
+
+        /// Push a new frame for `method_ref` and allow the caller to initialize
+        /// the frame's local variables before execution. This is useful for
+        /// tests that need to invoke methods directly with prepared arguments.
+        pub fn push_frame_with_setup<F>(&mut self, method_ref: &MethodReference, setup: F) -> Result<(), RunTimeError>
+        where
+            F: FnOnce(&mut crate::vm::stack::stack::StackFrame) -> Result<(), RunTimeError>,
+        {
+            let new_frame = crate::vm::stack::stack::StackFrame::new_ptr(method_ref.clone())?;
+
+            {
+                let mut nf = new_frame.borrow_mut();
+                setup(&mut nf)?;
+            }
+
+            // set pc to 0 for the new frame and push it on the stack
+            self.stack.push_frame(new_frame.clone());
+            self.current_frame = Some(new_frame.clone());
+            self.stack.set_pc(0);
+
+            Ok(())
+        }
         fn run_op(&mut self, op: &byte_code::Op) -> Result<Option<RunResult>, RunTimeError> {
             match op.instruction {
                 Instruction::Sipush => {
@@ -263,6 +295,46 @@ pub mod thread {
                         _ => return Err(RunTimeError::Other("Unexpected tag".to_string())),
                     }
                 }
+                Instruction::Invokespecial => {
+                    let param = bytes_to_short!(op.args);
+                    self.trace(format!("Executing {op}, {param}"));
+                    let current_frame = self.current_frame()?;
+                    let frame_ref = current_frame.borrow();
+                    let const_pool = &frame_ref.class.constant_pool;
+                    let index = param as u16;
+
+                    match const_pool.as_ref()[index as usize - 1].tag {
+                        ConstantPoolTag::Methodref => {
+                            let class = frame_ref.class.as_ref();
+                            if let Some(_method) = class.get_method_by_index(index) {
+                                // already resolved on class
+                            } else {
+                                self.trace(format!("Method at {index} not resolved"));
+                                let identifier = class
+                                    .resolve_method_ref_to_identifier(index)
+                                    .ok_or(RunTimeError::ResolveMethodError(format!(
+                                        "Failed to resolve constant pool ref {}",
+                                        index
+                                    )))?;
+                                self.trace(format!("Resolved identifier: {identifier}"));
+
+                                let mut ma = self.method_area.lock().map_err(|_| {
+                                    RunTimeError::Other("Method area lock poisoned".to_string())
+                                })?;
+                                match ma.resolve(&identifier) {
+                                    Ok(method_ref) => {
+                                        self.trace(format!("Resolved via MethodArea: {identifier}"));
+                                        return Ok(Some(RunResult::Invoke(method_ref)));
+                                    }
+                                    Err(e) => return Err(e),
+                                }
+                            }
+
+                            self.trace("Tag found");
+                        }
+                        _ => return Err(RunTimeError::Other("Unexpected tag".to_string())),
+                    }
+                }
                 Instruction::Invokedynamic => {
                     let param = bytes_to_short!(op.args);
                     self.trace(format!("Executing {op}, {param}"));
@@ -270,6 +342,19 @@ pub mod thread {
                 Instruction::New => {
                     let param = bytes_to_short!(op.args);
                     self.trace(format!("Executing {op}, {param}"));
+                    let current_frame = self.current_frame()?;
+                    let class_name = current_frame
+                        .borrow()
+                        .class
+                        .get_class_name(param as u16)
+                        .ok_or(RunTimeError::Other("Failed to resolve class for new".to_string()))?;
+
+                    let mut rm = self.reference_manager.lock().map_err(|_| {
+                        RunTimeError::Other("Reference manager lock poisoned".to_string())
+                    })?;
+                    let ref_id = rm.allocate_symbolic(format!("new:{}", class_name));
+                    drop(rm);
+                    current_frame.borrow_mut().operand_stack.push(ref_id as i32);
                 }
                 Instruction::IfIcmpeq
                 | Instruction::IfIcmpne
@@ -358,6 +443,13 @@ pub mod thread {
                     current_frame.borrow_mut().operand_stack.push(val);
                     self.trace(format!("Executing {op} {idx}"));
                 }
+                Instruction::Dload => {
+                    let idx = op.args[0] as u16;
+                    let current_frame = self.current_frame()?;
+                    let val: f64 = current_frame.borrow().get_variable_value(idx)?;
+                    current_frame.borrow_mut().operand_stack.push(val);
+                    self.trace(format!("Executing {op} {idx}"));
+                }
                 Instruction::Iload0
                 | Instruction::Iload1
                 | Instruction::Iload2
@@ -369,9 +461,25 @@ pub mod thread {
                     current_frame.borrow_mut().operand_stack.push(val);
                     self.trace(format!("Executing {op} {idx}"));
                 }
+                // dload_0..3
+                Instruction::Dload0
+                | Instruction::Dload1
+                | Instruction::Dload2
+                | Instruction::Dload3 => {
+                    let pos = op.instruction - Instruction::Dload0;
+                    let idx = pos as u16;
+                    self.trace(format!("Executing {op} {idx}"));
+                    let current_frame = self.current_frame()?;
+                    let val: f64 = current_frame.borrow().get_variable_value(idx)?;
+                    current_frame.borrow_mut().operand_stack.push(val);
+                }
                 Instruction::Aload => {
                     let idx = op.args[0] as u16;
                     self.trace(format!("Executing {op} {idx}"));
+                    let current_frame = self.current_frame()?;
+                    // load reference slot (stored as i32)
+                    let val: i32 = current_frame.borrow().get_variable_value(idx)?;
+                    current_frame.borrow_mut().operand_stack.push(val);
                 }
                 Instruction::Aaload => {
                     self.trace(format!("Executing {op}"));
@@ -396,12 +504,31 @@ pub mod thread {
                 Instruction::Aastore => {
                     self.trace(format!("Executing {op}"));
                 }
+                Instruction::Astore => {
+                    let idx = op.args[0] as u16;
+                    self.trace(format!("Executing {op} {idx}"));
+                    let current_frame = self.current_frame()?;
+                    let val: i32 = current_frame
+                        .borrow_mut()
+                        .operand_stack
+                        .pop()
+                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                    current_frame.borrow_mut().set_variable_value(idx, val)?;
+                }
                 Instruction::Astore0
                 | Instruction::Astore1
                 | Instruction::Astore2
                 | Instruction::Astore3 => {
                     let pos = op.instruction - Instruction::Astore0;
-                    self.trace(format!("Executing {op} {pos}"));
+                    let idx = pos as u16;
+                    self.trace(format!("Executing {op} {idx}"));
+                    let current_frame = self.current_frame()?;
+                    let val: i32 = current_frame
+                        .borrow_mut()
+                        .operand_stack
+                        .pop()
+                        .ok_or(RunTimeError::Other("Operand stack underflow".to_string()))?;
+                    current_frame.borrow_mut().set_variable_value(idx, val)?;
                 }
                 Instruction::Iconst0
                 | Instruction::Iconst1
@@ -415,7 +542,11 @@ pub mod thread {
                 | Instruction::Aload2
                 | Instruction::Aload3 => {
                     let pos = op.instruction - Instruction::Aload0;
-                    self.trace(format!("Executing {op} {pos}"));
+                    let idx = pos as u16;
+                    self.trace(format!("Executing {op} {idx}"));
+                    let current_frame = self.current_frame()?;
+                    let val: i32 = current_frame.borrow().get_variable_value(idx)?;
+                    current_frame.borrow_mut().operand_stack.push(val);
                 }
                 Instruction::Getstatic => {
                     let param = bytes_to_short!(op.args);

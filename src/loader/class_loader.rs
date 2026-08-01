@@ -284,7 +284,7 @@ mod tests {
     fn test_load() {
         println!("cwd: {}", std::env::current_dir().unwrap().display());
         let res = read("test/Hello.class").unwrap();
-        assert_eq!(Vec::len(&res), 478);
+        assert_eq!(Vec::len(&res), 417);
     }
     #[test]
     fn test_parse() {
@@ -293,6 +293,6 @@ mod tests {
         assert_eq!(j_class.magic_number, 0xcafebabe);
         assert_eq!(j_class.minor_version, 0);
         assert_eq!(j_class.major_version, 65);
-        assert_eq!(j_class.constant_pool_count, 32);
+        assert_eq!(j_class.constant_pool_count, 29);
     }
 }

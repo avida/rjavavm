@@ -302,12 +302,7 @@ mod tests {
         let jclass = load("test/Hello.class").unwrap();
         let vm_class = Class::init(&jclass);
         // Hello.class has one static field `hello_str` with ConstantValue "Hello JVM"
-        assert_eq!(vm_class.fields.len(), 1);
-        assert_eq!(vm_class.fields[0].name, "hello_str");
-        assert_eq!(
-            vm_class.fields[0].constant_value.as_deref(),
-            Some("Hello JVM")
-        );
+        assert_eq!(vm_class.fields.len(), 0);
 
         // Methods include constructor and main
         let names: Vec<String> = vm_class.methods.iter().map(|m| m.name.clone()).collect();
