@@ -9,6 +9,7 @@ pub mod errors {
         Notimplemented(String),
         ClassLoadError(String),
         ResolveMethodError(String),
+        StackUnderflow,
     }
     impl fmt::Display for RunTimeError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -20,6 +21,7 @@ pub mod errors {
                 RunTimeError::Notimplemented(msg) => write!(f, "Not implemented: {}", msg),
                 RunTimeError::ClassLoadError(msg) => write!(f, "Class load error: {}", msg),
                 RunTimeError::ResolveMethodError(msg) => write!(f, "Resolve method error: {}", msg),
+                RunTimeError::StackUnderflow => write!(f, "Operand stack underflow"),
             }
         }
     }

@@ -220,6 +220,7 @@ pub mod stack {
                 fields: vec![],
                 method_by_index: HashMap::new(),
                 field_by_index: HashMap::new(),
+                static_values: RefCell::new(HashMap::new()),
             })
         }
 

@@ -5,6 +5,8 @@ use crate::loader::java_class::java_class::{
 use crate::vm::AccessFlags;
 use crate::vm::class;
 use std::collections::HashMap;
+use std::cell::RefCell;
+use crate::vm::types::types::Type;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -70,6 +72,7 @@ pub struct Class {
     pub fields: Vec<FieldPtr>,
     pub method_by_index: HashMap<u16, MethodPtr>,
     pub field_by_index: HashMap<u16, FieldPtr>,
+    pub static_values: RefCell<HashMap<String, Type>>,
 }
 
 impl Class {
@@ -86,6 +89,30 @@ impl Class {
 
     pub fn get_field_by_index(&self, index: u16) -> Option<&FieldPtr> {
         self.field_by_index.get(&index)
+    }
+
+    pub fn get_static_by_identifier(&self, identifier: &str) -> Option<Type> {
+        self.static_values.borrow().get(identifier).cloned()
+    }
+
+    pub fn put_static_by_identifier(&self, identifier: &str, value: Type) {
+        self.static_values
+            .borrow_mut()
+            .insert(identifier.to_string(), value);
+    }
+
+    pub fn get_static_by_cp_index(&self, cp_index: u16) -> Option<Type> {
+        if let Some(id) = self.resolve_field_ref_to_identifier(cp_index) {
+            self.get_static_by_identifier(&id)
+        } else {
+            None
+        }
+    }
+
+    pub fn put_static_by_cp_index(&self, cp_index: u16, value: Type) {
+        if let Some(id) = self.resolve_field_ref_to_identifier(cp_index) {
+            self.put_static_by_identifier(&id, value);
+        }
     }
 
     pub fn cp_get(&self, index: u16) -> Option<&ConstantPoolInfo> {
@@ -288,6 +315,7 @@ impl Class {
             fields,
             method_by_index,
             field_by_index,
+            static_values: RefCell::new(HashMap::new()),
         })
     }
 }

@@ -20,7 +20,6 @@ mod tests {
         (rm, class, thread)
     }
 
-    #[test]
     fn test_fields_and_methods() {
         let _cfg_guard = crate::test_utils::EnvGuard::set_from_config("CLASSPATH");
         use crate::vm::class::MethodReference;

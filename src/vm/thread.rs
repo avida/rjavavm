@@ -16,6 +16,7 @@ pub mod thread {
         runtime::Runtime,
         stack::stack::{Stack, StackFrame},
     };
+    use crate::vm::types::types::Type;
 
     pub struct Thread {
         pc: usize,
@@ -586,24 +587,141 @@ pub mod thread {
                                 ma.insert_resolved_for_class(&class_name, &class_ptr);
                             }
 
-                            if let Some(_field_ref) = ma.get_resolved_field(&identifier) {
-                                // allocate a reference for this field and push to operand stack
-                                let mut rm = self.reference_manager.lock().map_err(|_| {
-                                    RunTimeError::Other(
-                                        "Reference manager lock poisoned".to_string(),
-                                    )
-                                })?;
-                                let ref_u32 = rm.allocate_symbolic(identifier.clone());
-                                drop(rm);
-                                // push reference as i32 slot
+                            // try to read a static value from the class static storage
+                            if let Some(val) = class_ptr.get_static_by_identifier(&identifier) {
+                                // push the stored value onto the operand stack
                                 drop(frame_ref);
                                 let mut cf = current_frame.borrow_mut();
-                                cf.operand_stack.push(ref_u32 as i32);
+                                match val {
+                                    Type::Int(i) => cf.operand_stack.push(i as i32),
+                                    Type::Long(l) => cf.operand_stack.push(l as i64),
+                                    Type::Float(f) => cf.operand_stack.push(f as f32),
+                                    Type::Double(d) => cf.operand_stack.push(d as f64),
+                                    Type::Reference(r) => cf.operand_stack.push(r as i32),
+                                    Type::Null => cf.operand_stack.push(0i32),
+                                    Type::Byte(b) => cf.operand_stack.push(b as i32),
+                                    Type::Short(s) => cf.operand_stack.push(s as i32),
+                                    Type::Char(c) => cf.operand_stack.push(c as i32),
+                                    Type::Bool(bv) => cf.operand_stack.push(if bv {1i32}else{0i32}),
+                                    _ => {
+                                        // fallback: allocate symbolic reference like before
+                                        let mut rm = self.reference_manager.lock().map_err(|_| {
+                                            RunTimeError::Other(
+                                                "Reference manager lock poisoned".to_string(),
+                                            )
+                                        })?;
+                                        let ref_u32 = rm.allocate_symbolic(identifier.clone());
+                                        drop(rm);
+                                        cf.operand_stack.push(ref_u32 as i32);
+                                    }
+                                }
                             } else {
-                                return Err(RunTimeError::Other(format!(
-                                    "Field {} not found",
+                                // no static value set yet; fall back allocate symbolic reference
+                                if let Some(_field_ref) = ma.get_resolved_field(&identifier) {
+                                    let mut rm = self.reference_manager.lock().map_err(|_| {
+                                        RunTimeError::Other(
+                                            "Reference manager lock poisoned".to_string(),
+                                        )
+                                    })?;
+                                    let ref_u32 = rm.allocate_symbolic(identifier.clone());
+                                    drop(rm);
+                                    drop(frame_ref);
+                                    let mut cf = current_frame.borrow_mut();
+                                    cf.operand_stack.push(ref_u32 as i32);
+                                } else {
+                                    return Err(RunTimeError::Other(format!(
+                                        "Field {} not found",
+                                        identifier
+                                    )));
+                                }
+                            }
+                        }
+                        _ => return Err(RunTimeError::Other("Unexpected tag".to_string())),
+                    }
+                }
+                Instruction::Putstatic => {
+                    let param = bytes_to_short!(op.args);
+                    self.trace(format!("Executing {op}, {param}"));
+                    let current_frame = self.current_frame()?;
+                    let frame_ref = current_frame.borrow();
+                    let const_pool = &frame_ref.class.constant_pool;
+                    let index = param as u16;
+
+                    match const_pool.as_ref()[index as usize - 1].tag {
+                        ConstantPoolTag::Fieldref => {
+                            let identifier = frame_ref
+                                .class
+                                .resolve_field_ref_to_identifier(index)
+                                .ok_or(RunTimeError::ResolveMethodError(format!(
+                                    "Failed to resolve constant pool ref {}",
+                                    index
+                                )))?;
+                            self.trace(format!("Putstatic identifier: {identifier}"));
+
+                            let class_name = crate::class_name_from_identifier!(identifier)
+                                .ok_or(RunTimeError::Other(format!(
+                                    "Invalid field identifier {}",
                                     identifier
-                                )));
+                                )))?
+                                .to_string();
+
+                            let mut ma = self.method_area.lock().map_err(|_| {
+                                RunTimeError::Other("Method area lock poisoned".to_string())
+                            })?;
+                            let class_ptr = ma.get_or_load_class(&class_name)?;
+                            if ma.get_resolved_field(&identifier).is_none() {
+                                ma.insert_resolved_for_class(&class_name, &class_ptr);
+                            }
+
+                            if let Some(field_ref) = ma.get_resolved_field(&identifier) {
+                                // Pop value from operand stack according to descriptor
+                                drop(frame_ref);
+                                let mut cf = current_frame.borrow_mut();
+                                let desc = field_ref.field().descriptor.clone();
+                                let ch = desc.chars().next().unwrap_or('V');
+                                match ch {
+                                    'I' => {
+                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(&identifier, Type::Int(v as u32));
+                                    }
+                                    'J' => {
+                                        let v: i64 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(&identifier, Type::Long(v as u64));
+                                    }
+                                    'F' => {
+                                        let v: f32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(&identifier, Type::Float(v));
+                                    }
+                                    'D' => {
+                                        let v: f64 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(&identifier, Type::Double(v));
+                                    }
+                                    'L' | '[' => {
+                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(&identifier, Type::Reference(v as u32));
+                                    }
+                                    'S' => {
+                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(&identifier, Type::Short(v as u16));
+                                    }
+                                    'B' => {
+                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(&identifier, Type::Byte(v as u8));
+                                    }
+                                    'C' => {
+                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(&identifier, Type::Char(v as u16));
+                                    }
+                                    'Z' => {
+                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(&identifier, Type::Bool(v != 0));
+                                    }
+                                    _ => {
+                                        return Err(RunTimeError::Other("Unsupported field type for putstatic".to_string()));
+                                    }
+                                }
+                            } else {
+                                return Err(RunTimeError::Other(format!("Field {} not found", identifier)));
                             }
                         }
                         _ => return Err(RunTimeError::Other("Unexpected tag".to_string())),
