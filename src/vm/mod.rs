@@ -11,7 +11,6 @@ pub mod runtime;
 pub mod stack;
 pub mod thread;
 pub mod types;
-mod tests;
 
 /// Extract class name from a constant-pool style identifier `pkg/Class.member...`.
 /// Returns `Some(&str)` with the substring before the last `.` or `None` if not found.

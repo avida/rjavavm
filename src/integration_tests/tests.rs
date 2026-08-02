@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::vm::AccessFlags;
     use crate::vm::class::MethodReference;
     use crate::vm::class::{Class, ClassPtr, Method};
@@ -10,6 +9,12 @@ mod tests {
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;
+
+    macro_rules! op {
+        ($index:expr, $instruction:expr, $args:expr) => {
+            Op { index: $index, instruction: $instruction, args: $args }
+        };
+    }
 
     fn create_test_runtime(
         class_path: &str,
@@ -99,21 +104,9 @@ mod tests {
         args_storage.push(vec![31u8]);
 
         let ops: Vec<Op> = vec![
-            Op {
-                index: 0,
-                instruction: Instruction::Bipush,
-                args: args_storage[0].as_slice(),
-            },
-            Op {
-                index: 2,
-                instruction: Instruction::Bipush,
-                args: args_storage[1].as_slice(),
-            },
-            Op {
-                index: 4,
-                instruction: Instruction::Iadd,
-                args: &[],
-            },
+            op!(0, Instruction::Bipush, args_storage[0].as_slice()),
+            op!(2, Instruction::Bipush, args_storage[1].as_slice()),
+            op!(4, Instruction::Iadd, &[]),
         ];
 
         let code = ops_to_bytes(&ops);
@@ -147,6 +140,79 @@ mod tests {
         // verify the result of iadd was pushed as the exit result (int 3)
         let val: i32 = frame.borrow_mut().operand_stack.pop().unwrap();
         assert_eq!(val, 42);
-        print!("val is {}", val);
+    }
+
+    #[test]
+    fn test_put_get_static_field() {
+        let _cfg_guard = crate::test_utils::EnvGuard::set_from_config("CLASSPATH");
+
+        let mut rt = crate::vm::runtime::Runtime::init(true);
+
+        use crate::loader::java_class::java_class::{ConstantPoolInfo, ConstantPoolPFieldInfo, ConstantPoolTag};
+        use crate::vm::byte_code::byte_code::{Instruction, Op, ops_to_bytes};
+        use crate::vm::class::{Class, Method, Field};
+        use crate::vm::AccessFlags;
+        use std::rc::Rc;
+
+        // build constant pool entries:
+        // 1: Utf8 "TestStatic"
+        // 2: Class { name_index = 1 }
+        // 3: Utf8 "myField"
+        // 4: Utf8 "I"
+        // 5: NameAndType { name_index = 3, descriptor_index = 4 }
+        // 6: Fieldref { class_index = 2, name_and_type_index = 5 }
+        let mut cp: Vec<ConstantPoolInfo> = Vec::new();
+        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 10, bytes: "TestStatic".as_bytes().to_vec() } });
+        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Class, info: ConstantPoolPFieldInfo::ClassInfo { name_index: 1 } });
+        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 7, bytes: "myField".as_bytes().to_vec() } });
+        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 1, bytes: "I".as_bytes().to_vec() } });
+        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::NameAndType, info: ConstantPoolPFieldInfo::NameAndType { name_index: 3, descriptor_index: 4 } });
+        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Fieldref, info: ConstantPoolPFieldInfo::FieldRef(crate::loader::java_class::java_class::RefFieldInfo { class_index: 2, name_and_type_index: 5 }) });
+
+        let cp_table = Rc::new(cp);
+
+        // code: bipush 7; putstatic #6; getstatic #6; return
+        let mut args_storage: Vec<Vec<u8>> = Vec::new();
+        args_storage.push(vec![7u8]);
+        args_storage.push(vec![0x00u8, 0x06u8]);
+
+        let ops: Vec<Op> = vec![
+            op!(0, Instruction::Bipush, args_storage[0].as_slice()),
+            op!(2, Instruction::Putstatic, args_storage[1].as_slice()),
+            op!(5, Instruction::Getstatic, args_storage[1].as_slice()),
+        ];
+
+        let code = ops_to_bytes(&ops);
+
+        let method = Rc::new(Method {
+            name: "main".to_string(),
+            descriptor: "()V".to_string(),
+            access_flags: AccessFlags::from(0u16),
+            max_stack: 2,
+            max_locals: 0,
+            code: code.clone(),
+        });
+
+        let field = Rc::new(Field { name: "myField".to_string(), descriptor: "I".to_string(), access_flags: AccessFlags::from(AccessFlags::ACC_STATIC), constant_value: None });
+
+        let mut method_by_index = HashMap::new();
+        method_by_index.insert(1u16, method.clone());
+
+        let class_ptr = Rc::new(Class {
+            constant_pool: cp_table,
+            methods: vec![method.clone()],
+            fields: vec![field],
+            method_by_index,
+            field_by_index: HashMap::new(),
+            static_values: RefCell::new(HashMap::new()),
+        });
+
+        rt.insert_class("TestStatic", class_ptr);
+        rt.run("TestStatic").expect("runtime run failed");
+
+        let frame = rt.main_thread.stack.top_frame().unwrap();
+        assert!(frame.borrow().operand_stack.stack_size() == 1);
+        let val: i32 = frame.borrow_mut().operand_stack.pop().unwrap();
+        assert_eq!(val, 7);
     }
 }

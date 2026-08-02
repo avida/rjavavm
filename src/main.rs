@@ -4,6 +4,7 @@ mod loader;
 mod utils;
 mod vm;
 mod test_utils;
+mod integration_tests;
 
 use crate::loader::utils::utils::lookup_class_file;
 use crate::vm::runtime::Runtime;
