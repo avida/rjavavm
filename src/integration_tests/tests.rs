@@ -32,11 +32,12 @@ mod tests {
     ) -> (ReferenceManagerPtr, ClassPtr, Thread) {
         let ma = MethodArea::new();
         let rm = ReferenceManager::new_ptr();
+        let heap = crate::vm::heap::Heap::new_ptr();
         let mut ma_guard = ma.lock().expect("MethodArea lock poisoned");
         let class = ma_guard
             .load_class(class_path)
             .expect(&format!("Failed to load {}", class_path));
-        let thread = Thread::new(&ma, &rm, trace);
+        let thread = Thread::new(&ma, &rm, &heap, trace);
         drop(ma_guard);
         (rm, class, thread)
     }
@@ -272,5 +273,151 @@ mod tests {
             Type::Int(v) => assert_eq!(v as u8, static_var),
             _ => panic!("expected int static value"),
         }
+    }
+    
+    #[test]
+    fn test_new_and_putfield_integration() {
+        let _cfg_guard = crate::test_utils::EnvGuard::set_from_config("CLASSPATH");
+
+        use crate::loader::java_class::java_class::{ConstantPoolInfo, ConstantPoolPFieldInfo, ConstantPoolTag, RefFieldInfo};
+        use crate::vm::class::{Class, Method, MethodPtr, Field};
+        use crate::vm::types::types::Type;
+        use std::rc::Rc;
+
+        // Build Target class with a field `value:I` and a simple <init>()V
+        let mut target_cp: Vec<ConstantPoolInfo> = Vec::new();
+        // 1: UTF8 "Target"
+        target_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 6, bytes: b"Target".to_vec() } });
+        // 2: Class { name_index = 1 }
+        target_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Class, info: ConstantPoolPFieldInfo::ClassInfo { name_index: 1 } });
+        // 3: UTF8 "<init>"
+        target_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 6, bytes: b"<init>".to_vec() } });
+        // 4: UTF8 "()V"
+        target_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 3, bytes: b"()V".to_vec() } });
+        // 5: NameAndType { name_index=3, descriptor_index=4 }
+        target_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::NameAndType, info: ConstantPoolPFieldInfo::NameAndType { name_index: 3, descriptor_index: 4 } });
+
+        // Create constructor method: just return
+        let init_method = Rc::new(Method {
+            name: "<init>".to_string(),
+            descriptor: "()V".to_string(),
+            access_flags: crate::vm::AccessFlags::from(0u16),
+            max_stack: 1,
+            max_locals: 1,
+            code: vec![Instruction::Return as u8],
+        });
+
+        // Field: value:I
+        let field = Rc::new(Field {
+            name: "value".to_string(),
+            descriptor: "I".to_string(),
+            access_flags: crate::vm::AccessFlags::from(0u16),
+            constant_value: None,
+        });
+
+        let target_class = Rc::new(Class {
+            constant_pool: Rc::new(target_cp),
+            methods: vec![init_method.clone()],
+            fields: vec![field.clone()],
+            method_by_index: {
+                let mut m = std::collections::HashMap::new();
+                m.insert(1u16, init_method.clone());
+                m
+            },
+            field_by_index: {
+                let mut m = std::collections::HashMap::new();
+                m.insert(1u16, field.clone());
+                m
+            },
+            static_values: std::cell::RefCell::new(std::collections::HashMap::new()),
+        });
+
+        // Build Creator class constant pool referencing Target, constructor and field
+        let mut creator_cp: Vec<ConstantPoolInfo> = Vec::new();
+        // 1: UTF8 "Target"
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 6, bytes: b"Target".to_vec() } });
+        // 2: Class { name_index = 1 }
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Class, info: ConstantPoolPFieldInfo::ClassInfo { name_index: 1 } });
+        // 3: UTF8 "<init>"
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 6, bytes: b"<init>".to_vec() } });
+        // 4: UTF8 "()V"
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 3, bytes: b"()V".to_vec() } });
+        // 5: NameAndType {3,4}
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::NameAndType, info: ConstantPoolPFieldInfo::NameAndType { name_index: 3, descriptor_index: 4 } });
+        // 6: MethodRef { class_index=2, name_and_type_index=5 }
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Methodref, info: ConstantPoolPFieldInfo::MethodRef(RefFieldInfo { class_index: 2, name_and_type_index: 5 }) });
+        // 7: UTF8 "value"
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 5, bytes: b"value".to_vec() } });
+        // 8: UTF8 "I"
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 1, bytes: b"I".to_vec() } });
+        // 9: NameAndType {7,8}
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::NameAndType, info: ConstantPoolPFieldInfo::NameAndType { name_index: 7, descriptor_index: 8 } });
+        // 10: FieldRef { class_index=2, name_and_type_index=9 }
+        creator_cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Fieldref, info: ConstantPoolPFieldInfo::FieldRef(RefFieldInfo { class_index: 2, name_and_type_index: 9 }) });
+
+        // Build Creator.main method: new #2, dup, invokespecial #6, dup, bipush 42, putfield #10, return
+        use crate::vm::byte_code::byte_code::{Op, Instruction, ops_to_bytes};
+        let mut args_storage: Vec<Vec<u8>> = Vec::new();
+        args_storage.push(vec![(2u16 >> 8) as u8, (2u16 & 0xff) as u8]); // class index for NEW
+        args_storage.push(vec![(6u16 >> 8) as u8, (6u16 & 0xff) as u8]); // methodref for invokespecial
+        args_storage.push(vec![(10u16 >> 8) as u8, (10u16 & 0xff) as u8]); // fieldref for putfield
+        args_storage.push(vec![42u8]); // bipush 42
+
+        let ops: Vec<Op> = vec![
+            Op { index: 0, instruction: Instruction::New, args: &args_storage[0] },
+            Op { index: 3, instruction: Instruction::Dup, args: &[] },
+            Op { index: 4, instruction: Instruction::Invokespecial, args: &args_storage[1] },
+            Op { index: 7, instruction: Instruction::Dup, args: &[] },
+            Op { index: 8, instruction: Instruction::Bipush, args: &args_storage[3] },
+            Op { index: 10, instruction: Instruction::Putfield, args: &args_storage[2] },
+            Op { index: 13, instruction: Instruction::Return, args: &[] },
+        ];
+
+        let code = ops_to_bytes(&ops);
+
+        let main_method = Rc::new(Method {
+            name: "main".to_string(),
+            descriptor: "()V".to_string(),
+            access_flags: crate::vm::AccessFlags::from(0u16),
+            max_stack: 4,
+            max_locals: 0,
+            code: code.clone(),
+        });
+
+        let creator_class = Rc::new(Class {
+            constant_pool: Rc::new(creator_cp),
+            methods: vec![main_method.clone()],
+            fields: vec![],
+            method_by_index: {
+                let mut m = std::collections::HashMap::new();
+                m.insert(1u16, main_method.clone());
+                m
+            },
+            field_by_index: std::collections::HashMap::new(),
+            static_values: std::cell::RefCell::new(std::collections::HashMap::new()),
+        });
+
+        // create runtime and insert both classes
+        let mut rt = crate::vm::runtime::Runtime::init(true);
+        rt.insert_class("Target", target_class.clone());
+        rt.insert_class("Creator", creator_class.clone());
+
+        // run Creator.main
+        rt.run("Creator").expect("runtime run failed");
+
+        // verify heap contains an instance of Target with field value == 42
+        let heap = rt.heap.lock().unwrap();
+        let mut found = false;
+        for (_id, entry) in heap.entries_ref().iter() {
+            if let crate::vm::heap::HeapEntry::Object(obj) = entry {
+                if obj.class_name == "Target" {
+                    if let Some(v) = obj.get_field("value") {
+                        assert_eq!(v, &Type::Int(42));
+                        found = true;
+                    }
+                }
+            }
+        }
+        assert!(found, "expected Target instance with value field set");
     }
 }

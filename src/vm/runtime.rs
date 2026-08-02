@@ -2,6 +2,7 @@ use crate::vm::class::{Class, ClassPtr, MethodReference};
 use crate::vm::errors::errors::RunTimeError;
 use crate::vm::method_area::{MethodArea, MethodAreaPtr};
 use crate::vm::reference_manager::ReferenceManager;
+use crate::vm::heap::HeapPtr;
 use crate::vm::thread::thread::Thread;
 use std::env;
 use std::path::PathBuf;
@@ -11,16 +12,19 @@ use std::sync::{Arc, Mutex};
 pub struct Runtime {
     method_area: MethodAreaPtr,
     pub main_thread: Thread,
+    pub heap: HeapPtr,
 }
 
 impl Runtime {
     pub fn init(trace_ops: bool) -> Self {
         let mut ma = MethodArea::new();
         let rm = ReferenceManager::new_ptr();
+        let heap = crate::vm::heap::Heap::new_ptr();
 
         Runtime {
             method_area: ma.clone(),
-            main_thread: Thread::new(&ma, &rm, trace_ops),
+            main_thread: Thread::new(&ma, &rm, &heap, trace_ops),
+            heap,
         }
     }
 

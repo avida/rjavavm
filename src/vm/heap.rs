@@ -1,9 +1,11 @@
-pub mod heap {
-    use std::collections::HashMap;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-    use crate::vm::types::types::Type;
+use crate::vm::types::types::Type;
 
     pub type HeapId = usize;
+
+    pub type HeapPtr = Arc<Mutex<Heap>>;
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct Object {
@@ -57,55 +59,46 @@ pub mod heap {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct InternalString {
-        pub value: String,
-    }
-
-    impl InternalString {
-        pub fn new<S: Into<String>>(value: S) -> Self {
-            Self {
-                value: value.into(),
-            }
-        }
-    }
 
     #[derive(Debug, Clone, PartialEq)]
     pub enum HeapEntry {
         Object(Object),
         Array(Array),
-        InternalString(InternalString),
     }
 
     #[derive(Debug, Default)]
     pub struct Heap {
-        next_id: HeapId,
         entries: HashMap<HeapId, HeapEntry>,
+    }
+
+    // expose entries field accessor for tests
+    impl Heap {
+        pub fn entries_ref(&self) -> &HashMap<HeapId, HeapEntry> {
+            &self.entries
+        }
     }
 
     impl Heap {
         pub fn new() -> Self {
-            Self {
-                next_id: 1,
-                entries: HashMap::new(),
-            }
+            Self { entries: HashMap::new() }
         }
 
-        pub fn allocate_object<S: Into<String>>(&mut self, class_name: S) -> HeapId {
-            self.insert(HeapEntry::Object(Object::new(class_name)))
+        pub fn new_ptr() -> HeapPtr {
+            Arc::new(Mutex::new(Heap::new()))
         }
 
-        pub fn allocate_array<S: Into<String>>(
-            &mut self,
-            element_descriptor: S,
-            len: usize,
-        ) -> HeapId {
-            self.insert(HeapEntry::Array(Array::new(element_descriptor, len)))
+        /// Allocate an object at the provided external `id`.
+        pub fn allocate_object_with_id<S: Into<String>>(&mut self, id: HeapId, class_name: S) -> HeapId {
+            self.entries.insert(id, HeapEntry::Object(Object::new(class_name)));
+            id
         }
 
-        pub fn allocate_string<S: Into<String>>(&mut self, value: S) -> HeapId {
-            self.insert(HeapEntry::InternalString(InternalString::new(value)))
+        /// Allocate an array at the provided external `id`.
+        pub fn allocate_array_with_id<S: Into<String>>(&mut self, id: HeapId, element_descriptor: S, len: usize) -> HeapId {
+            self.entries.insert(id, HeapEntry::Array(Array::new(element_descriptor, len)));
+            id
         }
+
 
         pub fn get(&self, id: HeapId) -> Option<&HeapEntry> {
             self.entries.get(&id)
@@ -143,12 +136,7 @@ pub mod heap {
             }
         }
 
-        pub fn get_string(&self, id: HeapId) -> Option<&InternalString> {
-            match self.entries.get(&id) {
-                Some(HeapEntry::InternalString(string)) => Some(string),
-                _ => None,
-            }
-        }
+        // Internal strings removed; heap stores Objects and Arrays only.
 
         pub fn remove(&mut self, id: HeapId) -> Option<HeapEntry> {
             self.entries.remove(&id)
@@ -158,27 +146,17 @@ pub mod heap {
             self.entries.len()
         }
 
-        fn insert(&mut self, entry: HeapEntry) -> HeapId {
-            let id = self.next_id;
-            self.next_id = self.next_id.wrapping_add(1);
-            if self.next_id == 0 {
-                self.next_id = 1;
-            }
-            self.entries.insert(id, entry);
-            id
-        }
+        // No internal id generation; ids are provided by the caller (reference manager).
     }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::heap::{Heap, HeapEntry};
+    use super::{Heap, HeapEntry};
     use crate::vm::types::types::Type;
 
     #[test]
     fn allocates_object_and_sets_field() {
         let mut heap = Heap::new();
-        let id = heap.allocate_object("java/io/PrintStream");
+        let id = heap.allocate_object_with_id(1, "java/io/PrintStream");
 
         let object = heap.get_object_mut(id).unwrap();
         object.set_field("out:Ljava/lang/String;", Type::Reference(7));
@@ -194,7 +172,7 @@ mod tests {
     #[test]
     fn allocates_array_and_updates_element() {
         let mut heap = Heap::new();
-        let id = heap.allocate_array("Ljava/lang/String;", 2);
+        let id = heap.allocate_array_with_id(2, "Ljava/lang/String;", 2);
 
         let array = heap.get_array_mut(id).unwrap();
         assert_eq!(array.len(), 2);
@@ -206,19 +184,9 @@ mod tests {
     }
 
     #[test]
-    fn allocates_internal_string_entry() {
-        let mut heap = Heap::new();
-        let id = heap.allocate_string("Hello, JVM!");
-
-        let string = heap.get_string(id).unwrap();
-        assert_eq!(string.value, "Hello, JVM!");
-        assert!(matches!(heap.get(id), Some(HeapEntry::InternalString(_))));
-    }
-
-    #[test]
     fn removes_entries() {
         let mut heap = Heap::new();
-        let id = heap.allocate_object("java/lang/Object");
+        let id = heap.allocate_object_with_id(4, "java/lang/Object");
         assert_eq!(heap.len(), 1);
         assert!(matches!(heap.remove(id), Some(HeapEntry::Object(_))));
         assert_eq!(heap.len(), 0);

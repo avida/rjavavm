@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug)]
 pub struct ReferenceManager {
     next: u32,
+    heap_next: usize,
     refs: HashMap<u32, ReferenceEntry>,
 }
 
@@ -23,8 +24,28 @@ impl ReferenceManager {
     pub fn new() -> ReferenceManager {
         ReferenceManager {
             next: 1,
+            heap_next: 1,
             refs: HashMap::new(),
         }
+    }
+
+    /// Allocate a new heap id and a corresponding reference mapping.
+    /// Returns `(reference_u32, heap_id)`.
+    pub fn allocate_new(&mut self) -> (u32, usize) {
+        let heap_id = self.heap_next;
+        self.heap_next = self.heap_next.wrapping_add(1);
+        if self.heap_next == 0 {
+            self.heap_next = 1;
+        }
+
+        let r = self.next;
+        self.next = self.next.wrapping_add(1);
+        if self.next == 0 {
+            self.next = 1;
+        }
+
+        self.refs.insert(r, ReferenceEntry::Heap(heap_id));
+        (r, heap_id)
     }
 
     /// Allocate a new reference for an existing heap id.
