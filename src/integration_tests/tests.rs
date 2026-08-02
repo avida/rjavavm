@@ -1,18 +1,28 @@
 #[cfg(test)]
 mod tests {
+    use crate::loader::java_class::java_class::{
+        ConstantPoolInfo, ConstantPoolPFieldInfo, ConstantPoolTag, RefFieldInfo,
+    };
     use crate::vm::AccessFlags;
+    use crate::vm::byte_code::byte_code::{Instruction, Op, ops_to_bytes};
+    use crate::vm::class::Field;
     use crate::vm::class::MethodReference;
     use crate::vm::class::{Class, ClassPtr, Method};
     use crate::vm::method_area::MethodArea;
     use crate::vm::reference_manager::{ReferenceManager, ReferenceManagerPtr};
     use crate::vm::thread::thread::Thread;
+    use crate::vm::types::types::Type;
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;
 
     macro_rules! op {
         ($index:expr, $instruction:expr, $args:expr) => {
-            Op { index: $index, instruction: $instruction, args: $args }
+            Op {
+                index: $index,
+                instruction: $instruction,
+                args: $args,
+            }
         };
     }
 
@@ -148,10 +158,7 @@ mod tests {
 
         let mut rt = crate::vm::runtime::Runtime::init(true);
 
-        use crate::loader::java_class::java_class::{ConstantPoolInfo, ConstantPoolPFieldInfo, ConstantPoolTag};
-        use crate::vm::byte_code::byte_code::{Instruction, Op, ops_to_bytes};
-        use crate::vm::class::{Class, Method, Field};
-        use crate::vm::AccessFlags;
+        // local uses removed; imports are at file top
         use std::rc::Rc;
 
         // build constant pool entries:
@@ -162,18 +169,53 @@ mod tests {
         // 5: NameAndType { name_index = 3, descriptor_index = 4 }
         // 6: Fieldref { class_index = 2, name_and_type_index = 5 }
         let mut cp: Vec<ConstantPoolInfo> = Vec::new();
-        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 10, bytes: "TestStatic".as_bytes().to_vec() } });
-        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Class, info: ConstantPoolPFieldInfo::ClassInfo { name_index: 1 } });
-        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 7, bytes: "myField".as_bytes().to_vec() } });
-        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Utf8, info: ConstantPoolPFieldInfo::Utf8Info { length: 1, bytes: "I".as_bytes().to_vec() } });
-        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::NameAndType, info: ConstantPoolPFieldInfo::NameAndType { name_index: 3, descriptor_index: 4 } });
-        cp.push(ConstantPoolInfo { tag: ConstantPoolTag::Fieldref, info: ConstantPoolPFieldInfo::FieldRef(crate::loader::java_class::java_class::RefFieldInfo { class_index: 2, name_and_type_index: 5 }) });
+        cp.push(ConstantPoolInfo {
+            tag: ConstantPoolTag::Utf8,
+            info: ConstantPoolPFieldInfo::Utf8Info {
+                length: 10,
+                bytes: "TestStatic".as_bytes().to_vec(),
+            },
+        });
+        cp.push(ConstantPoolInfo {
+            tag: ConstantPoolTag::Class,
+            info: ConstantPoolPFieldInfo::ClassInfo { name_index: 1 },
+        });
+        cp.push(ConstantPoolInfo {
+            tag: ConstantPoolTag::Utf8,
+            info: ConstantPoolPFieldInfo::Utf8Info {
+                length: 7,
+                bytes: "myField".as_bytes().to_vec(),
+            },
+        });
+        cp.push(ConstantPoolInfo {
+            tag: ConstantPoolTag::Utf8,
+            info: ConstantPoolPFieldInfo::Utf8Info {
+                length: 1,
+                bytes: "I".as_bytes().to_vec(),
+            },
+        });
+        cp.push(ConstantPoolInfo {
+            tag: ConstantPoolTag::NameAndType,
+            info: ConstantPoolPFieldInfo::NameAndType {
+                name_index: 3,
+                descriptor_index: 4,
+            },
+        });
+        cp.push(ConstantPoolInfo {
+            tag: ConstantPoolTag::Fieldref,
+            info: ConstantPoolPFieldInfo::FieldRef(RefFieldInfo {
+                class_index: 2,
+                name_and_type_index: 5,
+            }),
+        });
 
         let cp_table = Rc::new(cp);
 
         // code: bipush 7; putstatic #6; getstatic #6; return
         let mut args_storage: Vec<Vec<u8>> = Vec::new();
-        args_storage.push(vec![7u8]);
+        let static_var = 8u8;
+        args_storage.push(vec![static_var]);
+        // Constant pool's fieldref index
         args_storage.push(vec![0x00u8, 0x06u8]);
 
         let ops: Vec<Op> = vec![
@@ -193,7 +235,12 @@ mod tests {
             code: code.clone(),
         });
 
-        let field = Rc::new(Field { name: "myField".to_string(), descriptor: "I".to_string(), access_flags: AccessFlags::from(AccessFlags::ACC_STATIC), constant_value: None });
+        let field = Rc::new(Field {
+            name: "myField".to_string(),
+            descriptor: "I".to_string(),
+            access_flags: AccessFlags::from(AccessFlags::ACC_STATIC),
+            constant_value: None,
+        });
 
         let mut method_by_index = HashMap::new();
         method_by_index.insert(1u16, method.clone());
@@ -207,12 +254,23 @@ mod tests {
             static_values: RefCell::new(HashMap::new()),
         });
 
-        rt.insert_class("TestStatic", class_ptr);
+        rt.insert_class("TestStatic", class_ptr.clone());
         rt.run("TestStatic").expect("runtime run failed");
 
+        // verify operand stack result
         let frame = rt.main_thread.stack.top_frame().unwrap();
         assert!(frame.borrow().operand_stack.stack_size() == 1);
         let val: i32 = frame.borrow_mut().operand_stack.pop().unwrap();
-        assert_eq!(val, 7);
+        assert_eq!(val as u8, static_var);
+
+        // verify putstatic stored the value in the class static values map (use the class we inserted)
+        let static_id = "TestStatic.myField:I".to_string();
+        let stored = class_ptr
+            .get_static_by_identifier(&static_id)
+            .expect("static not found");
+        match stored {
+            Type::Int(v) => assert_eq!(v as u8, static_var),
+            _ => panic!("expected int static value"),
+        }
     }
 }
