@@ -78,7 +78,7 @@ pub mod thread {
                 .ok_or(RunTimeError::Other("Stack is empty".to_string()))?;
 
             if let Some(return_pc) = self.stack.pop_return_address() {
-                self.stack.set_pc(return_pc + 1);
+                self.stack.set_pc(return_pc);
             } else {
                 self.current_frame = None;
                 return Ok(false);
@@ -115,6 +115,8 @@ pub mod thread {
                         continue;
                     }
                     Ok(Some(RunResult::Return)) => {
+                        // print number of frames currently on the stack
+                        // println!("Stack: {} ", self.stack);
                         if self.finish_current_frame()? {
                             (class, method) = set_current_frame!(self);
                             continue;
@@ -374,7 +376,6 @@ pub mod thread {
                             if let Some(_method) = class.get_method_by_index(index) {
                                 // already resolved on class
                             } else {
-                                self.trace(format!("Method at {index} not resolved"));
                                 let identifier = class
                                     .resolve_method_ref_to_identifier(index)
                                     .ok_or(RunTimeError::ResolveMethodError(format!(
@@ -386,12 +387,8 @@ pub mod thread {
                                 let mut ma = self.method_area.lock().map_err(|_| {
                                     RunTimeError::Other("Method area lock poisoned".to_string())
                                 })?;
-                                println!("unlock");
                                 match ma.resolve(&identifier) {
                                     Ok(method_ref) => {
-                                        self.trace(format!(
-                                            "Resolved via MethodArea: {identifier}"
-                                        ));
                                         return Ok(Some(RunResult::Invoke(method_ref)));
                                     }
                                     Err(e) => return Err(e),
@@ -417,7 +414,6 @@ pub mod thread {
                             if let Some(_method) = class.get_method_by_index(index) {
                                 // already resolved on class
                             } else {
-                                self.trace(format!("Method at {index} not resolved"));
                                 let identifier = class
                                     .resolve_method_ref_to_identifier(index)
                                     .ok_or(RunTimeError::ResolveMethodError(format!(
@@ -431,9 +427,6 @@ pub mod thread {
                                 })?;
                                 match ma.resolve(&identifier) {
                                     Ok(method_ref) => {
-                                        self.trace(format!(
-                                            "Resolved via MethodArea: {identifier}"
-                                        ));
                                         return Ok(Some(RunResult::Invoke(method_ref)));
                                     }
                                     Err(e) => return Err(e),
@@ -1031,7 +1024,7 @@ pub mod thread {
                                     )
                                 })?;
                                 let heap_id = rm.resolve_heap(obj_ref as u32).ok_or(
-                                    RunTimeError::Other("Invalid object reference".to_string()),
+                                    RunTimeError::Other(format!("Invalid object reference: {}", obj_ref)),
                                 )?;
                                 drop(rm);
 
@@ -1068,7 +1061,7 @@ pub mod thread {
                     .as_ref()
                     .map(|cf| cf.borrow().operand_stack.len())
                     .unwrap_or(0);
-                self.trace(format!("Stack size: {stack_size}"));
+                // self.trace(format!("Stack size: {stack_size}"));
             }
             Ok(None)
         }

@@ -4,7 +4,6 @@ pub mod utils {
     use crate::vm::class;
 
     pub fn lookup_class_file(class_name: &str) -> Option<PathBuf> {
-        println!("lookup {}", class_name);
         // Normalize class name to path form (dots to slashes)
         let mut class_path = class_name.replace('.', "/");
         if !class_path.ends_with(".class") {

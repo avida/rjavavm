@@ -160,6 +160,9 @@ pub mod stack {
                 return_addresses: Vec::new(),
             }
         }
+        pub fn get_frame_count(&self) -> usize {
+            self.frames.len()
+        }
 
         pub fn push_frame(&mut self, frame: StackFramePtr) {
             self.frames.push(frame);
@@ -204,6 +207,20 @@ pub mod stack {
 
         pub fn jump_pc(&mut self, addr: usize) {
             self.program_counter = addr;
+        }
+    }
+
+    use std::fmt;
+
+    impl fmt::Display for Stack {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "Stack {{ frames: {}, return_addresses: {:?}, pc: {} }}",
+                self.frames.len(),
+                self.return_addresses,
+                self.program_counter
+            )
         }
     }
 
