@@ -14,6 +14,9 @@ pub mod operand_stack {
                 types: tvec,
             }
         }
+        pub fn stack_size(&self)-> usize {
+            self.stack.len()
+        }
         pub fn push<V: StackValue>(&mut self, value: V) {
             let slots = value.to_slots();
             let slot_types = V::slot_types();

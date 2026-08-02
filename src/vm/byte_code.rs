@@ -22,6 +22,7 @@ pub mod byte_code {
     #[repr(u8)]
     #[derive(Copy, Clone)]
     pub enum Instruction {
+        Nop = 0x00,
         Bipush = 0x10,
         Sipush = 0x11,
         IfIcmpeq = 0x9f,
@@ -93,12 +94,15 @@ pub mod byte_code {
         offset: usize,
     ) -> Result<(Op<'a>, usize), RunTimeError> {
         if offset >= bytes.len() {
-            return Err(RunTimeError::Other("offset out of range".to_string()));
+            return Err(RunTimeError::Other(
+                format!("offset {} out of range (code section length: {})", offset, bytes.len()),
+            ));
         }
         let op = bytes[offset];
         let index = offset;
 
         let (instruction, arg_len) = match op {
+            0x00 => (Instruction::Nop, 0),
             0x11 => (Instruction::Sipush, 2),
             0x99 => (Instruction::IfEq, 2),
             0x9a => (Instruction::IfNe, 2),
@@ -196,9 +200,21 @@ pub mod byte_code {
         Ok(result)
     }
 
+    /// Convert a slice of `Op` into a flat `Vec<u8>` representing the original
+    /// bytecode (instruction bytes followed by their argument bytes).
+    pub fn ops_to_bytes<'a>(ops: &[Op<'a>]) -> Vec<u8> {
+        let mut out: Vec<u8> = Vec::new();
+        for op in ops {
+            out.push(op.instruction as u8);
+            out.extend_from_slice(op.args);
+        }
+        out
+    }
+
     impl fmt::Display for Instruction {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
+                Instruction::Nop => write!(f, "nop"),
                 Instruction::Sipush => write!(f, "sipush"),
                 Instruction::IfIcmpeq => write!(f, "if_icmpeq"),
                 Instruction::IfIcmpne => write!(f, "if_icmpne"),
@@ -482,6 +498,19 @@ pub mod byte_code {
             assert_eq!(ops.len(), 4);
             for op in ops.iter() {
                 println!("{} {:?}", op.instruction, op.args);
+            }
+            let reconstructed = ops_to_bytes(&ops);
+            assert_eq!(reconstructed.as_slice(), bytes);
+        }
+
+        #[test]
+        fn test_parse_nop() {
+            let bytes: &[u8] = &[0x00]; // nop
+            let ops = parse(bytes).unwrap();
+            assert_eq!(ops.len(), 1);
+            match ops[0].instruction {
+                Instruction::Nop => assert!(ops[0].args.is_empty()),
+                _ => panic!("expected nop"),
             }
         }
     }

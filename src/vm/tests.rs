@@ -1,10 +1,16 @@
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vm::class::ClassPtr;
+    use crate::vm::AccessFlags;
+    use crate::vm::class::MethodReference;
+    use crate::vm::class::{Class, ClassPtr, Method};
     use crate::vm::method_area::MethodArea;
     use crate::vm::reference_manager::{ReferenceManager, ReferenceManagerPtr};
     use crate::vm::thread::thread::Thread;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::rc::Rc;
+
     fn create_test_runtime(
         class_path: &str,
         trace: bool,
@@ -22,8 +28,6 @@ mod tests {
 
     fn test_fields_and_methods() {
         let _cfg_guard = crate::test_utils::EnvGuard::set_from_config("CLASSPATH");
-        use crate::vm::class::MethodReference;
-        use std::rc::Rc;
 
         let (rm, class, mut thread) = create_test_runtime("test/MethodsAndFields.class", true);
 
@@ -77,5 +81,72 @@ mod tests {
 
         // run the thread; this will execute the method body
         thread.run().expect("thread run failed");
+    }
+
+    #[test]
+    fn test_iadd_runtime() {
+        let _cfg_guard = crate::test_utils::EnvGuard::set_from_config("CLASSPATH");
+
+        // create runtime and register a class containing a `main` method that
+        // performs `iconst_1; iconst_2; iadd; return`.
+        let mut rt = crate::vm::runtime::Runtime::init(true);
+
+        // build ops programmatically (bipush 1, bipush 2, iadd, return)
+        use crate::vm::byte_code::byte_code::{Instruction, Op, ops_to_bytes};
+
+        let mut args_storage: Vec<Vec<u8>> = Vec::new();
+        args_storage.push(vec![11u8]);
+        args_storage.push(vec![31u8]);
+
+        let ops: Vec<Op> = vec![
+            Op {
+                index: 0,
+                instruction: Instruction::Bipush,
+                args: args_storage[0].as_slice(),
+            },
+            Op {
+                index: 2,
+                instruction: Instruction::Bipush,
+                args: args_storage[1].as_slice(),
+            },
+            Op {
+                index: 4,
+                instruction: Instruction::Iadd,
+                args: &[],
+            },
+        ];
+
+        let code = ops_to_bytes(&ops);
+
+        let method = Rc::new(Method {
+            name: "main".to_string(),
+            descriptor: "()V".to_string(),
+            access_flags: AccessFlags::from(0u16),
+            max_stack: 2,
+            max_locals: 0,
+            code: code.clone(),
+        });
+
+        // prepare a Class instance containing the method
+        let mut method_by_index = HashMap::new();
+        method_by_index.insert(1u16, method.clone());
+        let class_ptr = Rc::new(Class {
+            constant_pool: Rc::new(vec![]),
+            methods: vec![method.clone()],
+            fields: vec![],
+            method_by_index,
+            field_by_index: HashMap::new(),
+            static_values: RefCell::new(HashMap::new()),
+        });
+
+        // register class under name "TestIadd" and run it using runtime.run
+        rt.insert_class("TestIadd", class_ptr);
+        rt.run("TestIadd").expect("runtime run failed");
+        let frame = rt.main_thread.stack.top_frame().unwrap();
+        assert!(frame.borrow().operand_stack.stack_size() == 1);
+        // verify the result of iadd was pushed as the exit result (int 3)
+        let val: i32 = frame.borrow_mut().operand_stack.pop().unwrap();
+        assert_eq!(val, 42);
+        print!("val is {}", val);
     }
 }

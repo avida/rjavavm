@@ -264,9 +264,6 @@ pub mod class_loader {
     }
 
     pub fn load(name: &str) -> Result<JavaClassPtr, ClassLoadError> {
-        println!( 
-            "{}", format!("Loading file {}", name)
-        );
         let data = read(name)?;
         parse(data)
     }

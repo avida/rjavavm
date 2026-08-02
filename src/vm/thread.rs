@@ -20,7 +20,7 @@ pub mod thread {
 
     pub struct Thread {
         pc: usize,
-        stack: Stack,
+        pub stack: Stack,
         current_frame: Option<StackFramePtr>,
         method_area: MethodAreaPtr,
         reference_manager: ReferenceManagerPtr,
@@ -71,7 +71,7 @@ pub mod thread {
         }
 
         fn finish_current_frame(&mut self) -> Result<bool, RunTimeError> {
-            self.stack
+                self.stack
                 .pop_frame()
                 .ok_or(RunTimeError::Other("Stack is empty".to_string()))?;
 
@@ -94,6 +94,14 @@ pub mod thread {
         pub fn run(&mut self) -> Result<(), RunTimeError> {
             let (mut class, mut method) = set_current_frame!(self);
             loop {
+                // if program counter has reached or passed the end of the code
+                // treat it as method completion (implicit return)
+                if self.stack.get_pc() >= method.code.len() {
+                    // reached end of code for current method; stop executing but
+                    // keep the frame on the stack so callers (tests) can inspect it
+                    break;
+                }
+
                 let (next_op, args_len) =
                     byte_code::parse_op_at(&method.code, self.stack.get_pc())?;
                 match self.run_op(&next_op) {

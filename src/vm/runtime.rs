@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 pub struct Runtime {
     method_area: MethodAreaPtr,
-    main_thread: Thread,
+    pub main_thread: Thread,
 }
 
 impl Runtime {
@@ -58,6 +58,14 @@ impl Runtime {
             )));
         }
         Ok(())
+    }
+
+    /// Insert a pre-built class into the runtime's method area under the
+    /// specified class name. Useful for tests that create classes programmatically.
+    pub fn insert_class(&mut self, class_name: &str, class_ptr: ClassPtr) {
+        if let Ok(mut ma) = self.method_area.lock() {
+            ma.insert(class_name.to_string(), class_ptr);
+        }
     }
 
     pub fn load_and_init(trace_ops: bool) -> Option<Self> {
