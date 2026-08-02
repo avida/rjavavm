@@ -648,14 +648,14 @@ pub mod thread {
                 }
                 Instruction::Astore => {
                     let idx = op.args[0] as u16;
-                    self.trace(format!("Executing {op} {idx}"));
+                    self.trace(format!("Executing {op}"));
                 }
                 Instruction::Aastore => {
                     self.trace(format!("Executing {op}"));
                 }
                 Instruction::Astore => {
                     let idx = op.args[0] as u16;
-                    self.trace(format!("Executing {op} {idx}"));
+                    self.trace(format!("Executing {op}"));
                     let current_frame = self.current_frame()?;
                     let val: i32 = current_frame
                         .borrow_mut()
