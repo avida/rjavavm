@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::vm::types::types::Type;
 
-    pub type HeapId = usize;
+    pub type HeapId = u32;
 
     pub type HeapPtr = Arc<Mutex<Heap>>;
 
@@ -89,12 +89,14 @@ use crate::vm::types::types::Type;
 
         /// Allocate an object at the provided external `id`.
         pub fn allocate_object_with_id<S: Into<String>>(&mut self, id: HeapId, class_name: S) -> HeapId {
+            println!("Allocating object with id {}", id);
             self.entries.insert(id, HeapEntry::Object(Object::new(class_name)));
             id
         }
 
         /// Allocate an array at the provided external `id`.
         pub fn allocate_array_with_id<S: Into<String>>(&mut self, id: HeapId, element_descriptor: S, len: usize) -> HeapId {
+            println!("Allocating array with id {} and length {}", id, len);
             self.entries.insert(id, HeapEntry::Array(Array::new(element_descriptor, len)));
             id
         }

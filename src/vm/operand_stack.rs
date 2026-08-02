@@ -137,6 +137,12 @@ pub mod operand_stack {
         }
     }
 
+    impl Popable for u32 {
+        fn pop_from(stack: &mut Vec<VarSlot>) -> Option<Self> {
+            stack.pop().map(|b| u32::from_be_bytes(b))
+        }
+    }
+
     impl Popable for i8 {
         fn pop_from(stack: &mut Vec<VarSlot>) -> Option<Self> {
             stack.pop().map(|b| i32::from_be_bytes(b) as i8)

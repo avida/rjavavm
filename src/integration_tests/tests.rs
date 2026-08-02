@@ -135,6 +135,7 @@ mod tests {
         let mut method_by_index = HashMap::new();
         method_by_index.insert(1u16, method.clone());
         let class_ptr = Rc::new(Class {
+            name: "".to_string(),
             constant_pool: Rc::new(vec![]),
             methods: vec![method.clone()],
             fields: vec![],
@@ -247,6 +248,7 @@ mod tests {
         method_by_index.insert(1u16, method.clone());
 
         let class_ptr = Rc::new(Class {
+            name: "".to_string(),
             constant_pool: cp_table,
             methods: vec![method.clone()],
             fields: vec![field],
@@ -316,6 +318,7 @@ mod tests {
         });
 
         let target_class = Rc::new(Class {
+            name: "".to_string(),
             constant_pool: Rc::new(target_cp),
             methods: vec![init_method.clone()],
             fields: vec![field.clone()],
@@ -385,6 +388,7 @@ mod tests {
         });
 
         let creator_class = Rc::new(Class {
+            name: "".to_string(),
             constant_pool: Rc::new(creator_cp),
             methods: vec![main_method.clone()],
             fields: vec![],

@@ -67,6 +67,7 @@ pub type FieldPtr = Rc<Field>;
 pub type ClassPtr = Rc<Class>;
 #[derive(Debug, Clone)]
 pub struct Class {
+    pub name: String,
     pub constant_pool: ConstantPoolInfoTable,
     pub methods: Vec<MethodPtr>,
     pub fields: Vec<FieldPtr>,
@@ -309,7 +310,36 @@ impl Class {
         let (methods, method_by_index) = Class::load_methods(class_info);
         let (fields, field_by_index) = Class::load_fields(class_info);
 
+        // extract class name from constant pool (this_class -> ClassInfo -> Utf8)
+        let name = if class_info.this_class == 0 {
+            "".to_string()
+        } else {
+            let idx = (class_info.this_class - 1) as usize;
+            if idx < class_info.constant_pool.len() {
+                match &class_info.constant_pool[idx].info {
+                    ConstantPoolPFieldInfo::ClassInfo { name_index } => {
+                        let nidx = (*name_index - 1) as usize;
+                        if nidx < class_info.constant_pool.len() {
+                            if let ConstantPoolPFieldInfo::Utf8Info { bytes, .. } =
+                                &class_info.constant_pool[nidx].info
+                            {
+                                String::from_utf8_lossy(bytes).into_owned()
+                            } else {
+                                "".to_string()
+                            }
+                        } else {
+                            "".to_string()
+                        }
+                    }
+                    _ => "".to_string(),
+                }
+            } else {
+                "".to_string()
+            }
+        };
+
         Rc::new(Class {
+            name,
             constant_pool: class_info.constant_pool.clone(),
             methods,
             fields,

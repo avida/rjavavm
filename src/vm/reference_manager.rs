@@ -9,51 +9,39 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug)]
 pub struct ReferenceManager {
     next: u32,
-    heap_next: usize,
     refs: HashMap<u32, ReferenceEntry>,
 }
 
 #[derive(Debug, Clone)]
 pub enum ReferenceEntry {
-    Heap(usize),      // maps to a heap-internal id (index or pointer)
+    Heap(u32),      // maps to a heap-internal id (now a u32 reference)
     Symbolic(String), // unresolved field/method identifier
 }
 
 impl ReferenceManager {
     /// Create a new ReferenceManager. References start at 1; 0 is reserved/null.
     pub fn new() -> ReferenceManager {
-        ReferenceManager {
-            next: 1,
-            heap_next: 1,
-            refs: HashMap::new(),
-        }
+        ReferenceManager { next: 1, refs: HashMap::new() }
     }
 
-    /// Allocate a new heap id and a corresponding reference mapping.
-    /// Returns `(reference_u32, heap_id)`.
-    pub fn allocate_new(&mut self) -> (u32, usize) {
-        let heap_id = self.heap_next;
-        self.heap_next = self.heap_next.wrapping_add(1);
-        if self.heap_next == 0 {
-            self.heap_next = 1;
-        }
-
+    /// Allocate a new reference and register it as a heap entry key.
+    /// Returns the new `reference_u32`.
+    pub fn allocate_new(&mut self) -> u32 {
         let r = self.next;
         self.next = self.next.wrapping_add(1);
         if self.next == 0 {
             self.next = 1;
         }
-
-        self.refs.insert(r, ReferenceEntry::Heap(heap_id));
-        (r, heap_id)
+        // store the heap mapping using the reference itself as the heap id
+        self.refs.insert(r, ReferenceEntry::Heap(r));
+        r
     }
 
     /// Allocate a new reference for an existing heap id.
     /// Returns the new 32-bit reference value.
-    pub fn allocate_heap(&mut self, heap_id: usize) -> u32 {
+    pub fn allocate_heap(&mut self, heap_id: u32) -> u32 {
         let r = self.next;
         self.next = self.next.wrapping_add(1);
-        // ensure we never hand out 0
         if self.next == 0 {
             self.next = 1;
         }
@@ -78,7 +66,7 @@ impl ReferenceManager {
     }
 
     /// Try to resolve a reference as a heap id.
-    pub fn resolve_heap(&self, reference: u32) -> Option<usize> {
+    pub fn resolve_heap(&self, reference: u32) -> Option<u32> {
         match self.refs.get(&reference) {
             Some(ReferenceEntry::Heap(id)) => Some(*id),
             _ => None,
@@ -120,9 +108,9 @@ mod tests {
     #[test]
     fn allocate_and_resolve_heap() {
         let mut rm = ReferenceManager::new();
-        let r = rm.allocate_heap(42);
+        let r = rm.allocate_heap(42u32);
         assert!(r != 0);
-        assert_eq!(rm.resolve_heap(r), Some(42usize));
+        assert_eq!(rm.resolve_heap(r), Some(42u32));
         assert_eq!(rm.len(), 1);
     }
 
@@ -139,10 +127,10 @@ mod tests {
     #[test]
     fn remove_reference() {
         let mut rm = ReferenceManager::new();
-        let r1 = rm.allocate_heap(1);
+        let r1 = rm.allocate_heap(1u32);
         let r2 = rm.allocate_symbolic("X".to_string());
         assert_eq!(rm.len(), 2);
-        assert!(matches!(rm.remove(r1), Some(ReferenceEntry::Heap(1))));
+        assert!(matches!(rm.remove(r1), Some(ReferenceEntry::Heap(1u32))));
         assert_eq!(rm.len(), 1);
         assert!(matches!(rm.remove(r2), Some(ReferenceEntry::Symbolic(_))));
         assert_eq!(rm.len(), 0);

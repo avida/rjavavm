@@ -6,6 +6,7 @@ pub mod stack {
     use crate::vm::types::types::*;
     use std::cell::RefCell;
     use std::rc::Rc;
+    use std::fmt;
 
     pub struct StackFrame {
         pub class: ClassPtr,
@@ -95,6 +96,15 @@ pub mod stack {
         }
         fn into_slots(self) -> Vec<VarSlot> {
             vec![(self as i32).to_be_bytes()]
+        }
+    }
+
+    impl LocalVariableValue for u32 {
+        fn from_slots(slots: &[VarSlot]) -> Self {
+            u32::from_be_bytes(slots[0])
+        }
+        fn into_slots(self) -> Vec<VarSlot> {
+            vec![self.to_be_bytes()]
         }
     }
 
@@ -210,8 +220,6 @@ pub mod stack {
         }
     }
 
-    use std::fmt;
-
     impl fmt::Display for Stack {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(
@@ -224,6 +232,22 @@ pub mod stack {
         }
     }
 
+    impl fmt::Display for StackFrame {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            writeln!(f, "StackFrame {{")?;
+            writeln!(f, "  class: {}", self.class.name)?;
+            writeln!(f, "  method: {}", self.method.name)?;
+            writeln!(f, "  locals: [")?;
+            for (i, slot) in self.local_variables.iter().enumerate() {
+                let v = u32::from_be_bytes(*slot);
+                writeln!(f, "    [{:>3}]: 0x{:08x}", i, v)?;
+            }
+            writeln!(f, "  ]")?;
+            writeln!(f, "  operand_stack: {}", self.operand_stack)?;
+            write!(f, "}}")
+        }
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -232,6 +256,7 @@ pub mod stack {
 
         fn dummy_class() -> ClassPtr {
             Rc::new(Class {
+                name: "".to_string(),
                 constant_pool: Rc::new(vec![]),
                 methods: vec![],
                 fields: vec![],
