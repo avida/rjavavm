@@ -7,17 +7,17 @@ pub mod thread {
     use crate::vm::byte_code::byte_code::{self, Instruction};
 
     use crate::vm::class::MethodReference;
+    use crate::vm::heap::HeapPtr;
     use crate::vm::method_area::{MethodArea, MethodAreaPtr};
     use crate::vm::reference_manager::ReferenceManagerPtr;
-    use crate::vm::heap::HeapPtr;
     use crate::vm::stack::stack::StackFramePtr;
+    use crate::vm::types::types::Type;
     use crate::vm::{
         class::ClassPtr,
         errors::errors::RunTimeError,
         runtime::Runtime,
         stack::stack::{Stack, StackFrame},
     };
-    use crate::vm::types::types::Type;
 
     pub struct Thread {
         pc: usize,
@@ -73,7 +73,7 @@ pub mod thread {
         }
 
         fn finish_current_frame(&mut self) -> Result<bool, RunTimeError> {
-                self.stack
+            self.stack
                 .pop_frame()
                 .ok_or(RunTimeError::Other("Stack is empty".to_string()))?;
 
@@ -108,12 +108,12 @@ pub mod thread {
                     byte_code::parse_op_at(&method.code, self.stack.get_pc())?;
                 match self.run_op(&next_op) {
                     Ok(Some(RunResult::Invoke(method_ref))) => {
-                            let ret_pc = self.stack.get_pc();
-                            // advance past the invoking instruction and its args when returning
-                            self.push_frame_with_return(&method_ref, ret_pc + args_len + 1)?;
-                            (class, method) = set_current_frame!(self);
-                            continue;
-                        }
+                        let ret_pc = self.stack.get_pc();
+                        // advance past the invoking instruction and its args when returning
+                        self.push_frame_with_return(&method_ref, ret_pc + args_len + 1)?;
+                        (class, method) = set_current_frame!(self);
+                        continue;
+                    }
                     Ok(Some(RunResult::Return)) => {
                         if self.finish_current_frame()? {
                             (class, method) = set_current_frame!(self);
@@ -128,7 +128,10 @@ pub mod thread {
                     Ok(Some(RunResult::AReturn(reference))) => {
                         if self.finish_current_frame()? {
                             let current_frame = self.current_frame()?;
-                            current_frame.borrow_mut().operand_stack.push(reference as i32);
+                            current_frame
+                                .borrow_mut()
+                                .operand_stack
+                                .push(reference as i32);
                             (class, method) = set_current_frame!(self);
                             continue;
                         }
@@ -235,7 +238,11 @@ pub mod thread {
             Ok(())
         }
 
-        fn push_frame_with_return(&mut self, method_ref: &MethodReference, return_addr: usize) -> Result<(), RunTimeError> {
+        fn push_frame_with_return(
+            &mut self,
+            method_ref: &MethodReference,
+            return_addr: usize,
+        ) -> Result<(), RunTimeError> {
             // determine parameter types from method descriptor
             let method = method_ref.method();
 
@@ -319,7 +326,11 @@ pub mod thread {
         /// Push a new frame for `method_ref` and allow the caller to initialize
         /// the frame's local variables before execution. This is useful for
         /// tests that need to invoke methods directly with prepared arguments.
-        pub fn push_frame_with_setup<F>(&mut self, method_ref: &MethodReference, setup: F) -> Result<(), RunTimeError>
+        pub fn push_frame_with_setup<F>(
+            &mut self,
+            method_ref: &MethodReference,
+            setup: F,
+        ) -> Result<(), RunTimeError>
         where
             F: FnOnce(&mut crate::vm::stack::stack::StackFrame) -> Result<(), RunTimeError>,
         {
@@ -378,7 +389,9 @@ pub mod thread {
                                 println!("unlock");
                                 match ma.resolve(&identifier) {
                                     Ok(method_ref) => {
-                                        self.trace(format!("Resolved via MethodArea: {identifier}"));
+                                        self.trace(format!(
+                                            "Resolved via MethodArea: {identifier}"
+                                        ));
                                         return Ok(Some(RunResult::Invoke(method_ref)));
                                     }
                                     Err(e) => return Err(e),
@@ -418,7 +431,9 @@ pub mod thread {
                                 })?;
                                 match ma.resolve(&identifier) {
                                     Ok(method_ref) => {
-                                        self.trace(format!("Resolved via MethodArea: {identifier}"));
+                                        self.trace(format!(
+                                            "Resolved via MethodArea: {identifier}"
+                                        ));
                                         return Ok(Some(RunResult::Invoke(method_ref)));
                                     }
                                     Err(e) => return Err(e),
@@ -442,7 +457,9 @@ pub mod thread {
                         .borrow()
                         .class
                         .get_class_name(param as u16)
-                        .ok_or(RunTimeError::Other("Failed to resolve class for new".to_string()))?;
+                        .ok_or(RunTimeError::Other(
+                            "Failed to resolve class for new".to_string(),
+                        ))?;
 
                     let mut rm = self.reference_manager.lock().map_err(|_| {
                         RunTimeError::Other("Reference manager lock poisoned".to_string())
@@ -450,7 +467,10 @@ pub mod thread {
                     let (ref_id, heap_id) = rm.allocate_new();
                     drop(rm);
 
-                    let mut heap = self.heap.lock().map_err(|_| RunTimeError::Other("Heap lock poisoned".to_string()))?;
+                    let mut heap = self
+                        .heap
+                        .lock()
+                        .map_err(|_| RunTimeError::Other("Heap lock poisoned".to_string()))?;
                     heap.allocate_object_with_id(heap_id, class_name.clone());
                     drop(heap);
 
@@ -700,14 +720,17 @@ pub mod thread {
                                     Type::Byte(b) => cf.operand_stack.push(b as i32),
                                     Type::Short(s) => cf.operand_stack.push(s as i32),
                                     Type::Char(c) => cf.operand_stack.push(c as i32),
-                                    Type::Bool(bv) => cf.operand_stack.push(if bv {1i32}else{0i32}),
+                                    Type::Bool(bv) => {
+                                        cf.operand_stack.push(if bv { 1i32 } else { 0i32 })
+                                    }
                                     _ => {
                                         // fallback: allocate symbolic reference like before
-                                        let mut rm = self.reference_manager.lock().map_err(|_| {
-                                            RunTimeError::Other(
-                                                "Reference manager lock poisoned".to_string(),
-                                            )
-                                        })?;
+                                        let mut rm =
+                                            self.reference_manager.lock().map_err(|_| {
+                                                RunTimeError::Other(
+                                                    "Reference manager lock poisoned".to_string(),
+                                                )
+                                            })?;
                                         let ref_u32 = rm.allocate_symbolic(identifier.clone());
                                         drop(rm);
                                         cf.operand_stack.push(ref_u32 as i32);
@@ -779,47 +802,102 @@ pub mod thread {
                                 let ch = desc.chars().next().unwrap_or('V');
                                 match ch {
                                     'I' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
-                                        class_ptr.put_static_by_identifier(&identifier, Type::Int(v as u32));
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(
+                                            &identifier,
+                                            Type::Int(v as u32),
+                                        );
                                     }
                                     'J' => {
-                                        let v: i64 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
-                                        class_ptr.put_static_by_identifier(&identifier, Type::Long(v as u64));
+                                        let v: i64 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(
+                                            &identifier,
+                                            Type::Long(v as u64),
+                                        );
                                     }
                                     'F' => {
-                                        let v: f32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
-                                        class_ptr.put_static_by_identifier(&identifier, Type::Float(v));
+                                        let v: f32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr
+                                            .put_static_by_identifier(&identifier, Type::Float(v));
                                     }
                                     'D' => {
-                                        let v: f64 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
-                                        class_ptr.put_static_by_identifier(&identifier, Type::Double(v));
+                                        let v: f64 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr
+                                            .put_static_by_identifier(&identifier, Type::Double(v));
                                     }
                                     'L' | '[' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
-                                        class_ptr.put_static_by_identifier(&identifier, Type::Reference(v as u32));
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(
+                                            &identifier,
+                                            Type::Reference(v as u32),
+                                        );
                                     }
                                     'S' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
-                                        class_ptr.put_static_by_identifier(&identifier, Type::Short(v as u16));
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(
+                                            &identifier,
+                                            Type::Short(v as u16),
+                                        );
                                     }
                                     'B' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
-                                        class_ptr.put_static_by_identifier(&identifier, Type::Byte(v as u8));
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(
+                                            &identifier,
+                                            Type::Byte(v as u8),
+                                        );
                                     }
                                     'C' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
-                                        class_ptr.put_static_by_identifier(&identifier, Type::Char(v as u16));
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(
+                                            &identifier,
+                                            Type::Char(v as u16),
+                                        );
                                     }
                                     'Z' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
-                                        class_ptr.put_static_by_identifier(&identifier, Type::Bool(v != 0));
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
+                                        class_ptr.put_static_by_identifier(
+                                            &identifier,
+                                            Type::Bool(v != 0),
+                                        );
                                     }
                                     _ => {
-                                        return Err(RunTimeError::Other("Unsupported field type for putstatic".to_string()));
+                                        return Err(RunTimeError::Other(
+                                            "Unsupported field type for putstatic".to_string(),
+                                        ));
                                     }
                                 }
                             } else {
-                                return Err(RunTimeError::Other(format!("Field {} not found", identifier)));
+                                return Err(RunTimeError::Other(format!(
+                                    "Field {} not found",
+                                    identifier
+                                )));
                             }
                         }
                         _ => return Err(RunTimeError::Other("Unexpected tag".to_string())),
@@ -869,66 +947,109 @@ pub mod thread {
                                 // value first
                                 let value_type = match ch {
                                     'I' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
                                         Type::Int(v as u32)
                                     }
                                     'J' => {
-                                        let v: i64 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        let v: i64 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
                                         Type::Long(v as u64)
                                     }
                                     'F' => {
-                                        let v: f32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        let v: f32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
                                         Type::Float(v)
                                     }
                                     'D' => {
-                                        let v: f64 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        let v: f64 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
                                         Type::Double(v)
                                     }
                                     'L' | '[' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
                                         Type::Reference(v as u32)
                                     }
                                     'S' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
                                         Type::Short(v as u16)
                                     }
                                     'B' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
                                         Type::Byte(v as u8)
                                     }
                                     'C' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
                                         Type::Char(v as u16)
                                     }
                                     'Z' => {
-                                        let v: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                        let v: i32 = cf
+                                            .operand_stack
+                                            .pop()
+                                            .ok_or(RunTimeError::StackUnderflow)?;
                                         Type::Bool(v != 0)
                                     }
-                                    _ => return Err(RunTimeError::Other("Unsupported field type for putfield".to_string())),
+                                    _ => {
+                                        return Err(RunTimeError::Other(
+                                            "Unsupported field type for putfield".to_string(),
+                                        ));
+                                    }
                                 };
 
                                 // now object reference
-                                let obj_ref: i32 = cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
+                                let obj_ref: i32 =
+                                    cf.operand_stack.pop().ok_or(RunTimeError::StackUnderflow)?;
                                 if obj_ref == 0 {
-                                    return Err(RunTimeError::Other("NullPointerException".to_string()));
+                                    return Err(RunTimeError::Other(
+                                        "NullPointerException".to_string(),
+                                    ));
                                 }
 
                                 let mut rm = self.reference_manager.lock().map_err(|_| {
-                                    RunTimeError::Other("Reference manager lock poisoned".to_string())
+                                    RunTimeError::Other(
+                                        "Reference manager lock poisoned".to_string(),
+                                    )
                                 })?;
-                                let heap_id = rm
-                                    .resolve_heap(obj_ref as u32)
-                                    .ok_or(RunTimeError::Other("Invalid object reference".to_string()))?;
+                                let heap_id = rm.resolve_heap(obj_ref as u32).ok_or(
+                                    RunTimeError::Other("Invalid object reference".to_string()),
+                                )?;
                                 drop(rm);
 
-                                let mut heap = self.heap.lock().map_err(|_| RunTimeError::Other("Heap lock poisoned".to_string()))?;
+                                let mut heap = self.heap.lock().map_err(|_| {
+                                    RunTimeError::Other("Heap lock poisoned".to_string())
+                                })?;
                                 if let Some(obj) = heap.get_object_mut(heap_id) {
                                     obj.set_field(field_ref.field().name.clone(), value_type);
                                 } else {
-                                    return Err(RunTimeError::Other("Heap object not found".to_string()));
+                                    return Err(RunTimeError::Other(
+                                        "Heap object not found".to_string(),
+                                    ));
                                 }
                             } else {
-                                return Err(RunTimeError::Other(format!("Field {} not found", identifier)));
+                                return Err(RunTimeError::Other(format!(
+                                    "Field {} not found",
+                                    identifier
+                                )));
                             }
                         }
                         _ => return Err(RunTimeError::Other("Unexpected tag".to_string())),
